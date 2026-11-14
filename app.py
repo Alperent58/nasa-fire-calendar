@@ -249,4 +249,4 @@ if len(f_harm) > 0:
         action_rec = "Prioritize pre-positioning of aerial suppression assets, thermal watchtowers, and rapid initial-attack crews 3 weeks prior to peak window."
     elif primary_month in [10, 11]:
         regime_label = "Post-Harvest Agricultural Stubble & Residue Burning Regime"
-        action_rec = "Deploy ground-based agricultural inspection patrols and enforce controlled-burn permits to prevent wildland-urban interface escape
+        action_rec = "Deploy ground-based agricultural inspection patrols and enforce controlled-burn permits to prevent wildland-urban interface escape."
