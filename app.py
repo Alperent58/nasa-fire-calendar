@@ -9,140 +9,174 @@ import calendar
 from datetime import datetime, timezone, timedelta
 
 st.set_page_config(
-    page_title="MODIS-VIIRS Fire Regime & Live NRT Analysis",
+    page_title="NASA FIRMS Orbital Fire Telemetry & NRT Platform",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- CLEAN TECHNICAL UI STYLING ---
-st.markdown("""
-<style>
-    .stApp { background-color: #0E1117; }
-    .header-container {
-        border-bottom: 1px solid #262C36;
-        padding-bottom: 16px;
-        margin-bottom: 20px;
-    }
-    .header-meta {
-        font-family: monospace;
-        font-size: 12px;
-        color: #8B949E;
-        letter-spacing: 0.8px;
-        text-transform: uppercase;
-        margin-bottom: 4px;
-    }
-    .header-title {
-        font-size: 28px;
-        font-weight: 700;
-        color: #F0F6FC;
-        margin: 0;
-    }
-    .header-desc {
-        font-size: 14px;
-        color: #8B949E;
-        margin-top: 6px;
-    }
-    .exec-box {
-        background-color: #161B22;
-        border-left: 4px solid #E34C26;
-        border-top: 1px solid #30363D;
-        border-right: 1px solid #30363D;
-        border-bottom: 1px solid #30363D;
-        border-radius: 6px;
-        padding: 14px 18px;
-        margin-bottom: 20px;
-    }
-    .live-banner {
-        background-color: rgba(46, 160, 67, 0.1);
-        border: 1px solid rgba(46, 160, 67, 0.4);
-        border-left: 4px solid #3FB950;
-        border-radius: 6px;
-        padding: 14px 18px;
-        margin-bottom: 18px;
-        color: #E6EDF3;
-        font-size: 14px;
-    }
-    .live-alert {
-        background-color: rgba(227, 76, 38, 0.12);
-        border: 1px solid rgba(227, 76, 38, 0.45);
-        border-left: 4px solid #E34C26;
-        border-radius: 6px;
-        padding: 14px 18px;
-        margin-bottom: 18px;
-        color: #E6EDF3;
-        font-size: 14px;
-    }
-    .exec-title {
-        font-size: 12px;
-        font-weight: 700;
-        text-transform: uppercase;
-        color: #E34C26;
-        letter-spacing: 0.6px;
-        margin-bottom: 6px;
-    }
-    .exec-text {
-        font-size: 14px;
-        color: #C9D1D9;
-        line-height: 1.55;
-    }
-    .caveat-box {
-        background-color: rgba(210, 153, 34, 0.08);
-        border: 1px solid rgba(210, 153, 34, 0.4);
-        border-left: 4px solid #D29922;
-        border-radius: 6px;
-        padding: 12px 16px;
-        margin-top: 12px;
-        margin-bottom: 16px;
-        font-size: 13px;
-        color: #E6EDF3;
-    }
-    div[data-testid="stMetric"] {
-        background-color: #161B22;
-        border: 1px solid #30363D;
-        border-radius: 6px;
-        padding: 14px 18px;
-    }
-    div[data-testid="stMetricLabel"] {
-        color: #8B949E !important;
-        font-size: 12px !important;
-        font-weight: 600 !important;
-    }
-    div[data-testid="stMetricValue"] {
-        color: #F0F6FC !important;
-        font-size: 21px !important;
-        font-weight: 600 !important;
-    }
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 16px;
-        border-bottom: 1px solid #262C36;
-    }
-    .stTabs [data-baseweb="tab"] {
-        padding: 10px 4px;
-        color: #8B949E;
-        font-weight: 500;
-        font-size: 14px;
-    }
-    .stTabs [aria-selected="true"] {
-        color: #F0F6FC !important;
-        border-bottom: 2px solid #E34C26 !important;
-    }
-</style>
-""", unsafe_allow_html=True)
+if "ui_theme" not in st.session_state:
+    st.session_state.ui_theme = "Dark Space"
 
-# --- TECHNICAL HEADER ---
-st.markdown("""
-<div class="header-container">
-    <div class="header-meta">
-        NASA FIRMS ARCHIVE & NRT STREAM • MULTI-SENSOR HARMONIZATION
-    </div>
-    <div class="header-title">
-        MODIS & VIIRS Fire Activity Calendar, Live NRT & Thermal Analysis
-    </div>
-    <div class="header-desc">
-        Cross-sensor spatial grid alignment (0.01°), near real-time orbital verification,
-        month-by-month surveillance, and bounded radiative kinetics.
-    </div>
-</div>
+# --- TOP BAR: THEME TOGGLE ON TOP RIGHT ---
+top_spacer, top_theme_col = st.columns([6.5, 1.5])
+with top_theme_col:
+    theme_choice = st.radio(
+        "Theme",
+        ["Dark Space", "Light Mode"],
+        horizontal=True,
+        label_visibility="collapsed",
+        index=0 if st.session_state.ui_theme == "Dark Space" else 1
+    )
+    st.session_state.ui_theme = theme_choice
+
+is_dark = st.session_state.ui_theme == "Dark Space"
+
+# --- DYNAMIC SPACE / LIGHT PALETTE ---
+if is_dark:
+    bg_main = "radial-gradient(circle at 18% 8%, #16213E 0%, #0B0E17 48%, #06080F 100%)"
+    card_bg = "rgba(19, 25, 41, 0.85)"
+    card_border = "#283552"
+    text_primary = "#F4F7FC"
+    text_secondary = "#A3B1CC"
+    accent_primary = "#FF5722"
+    accent_secondary = "#38BDF8"
+    plotly_template = "plotly_dark"
+    plot_bg = "rgba(19, 25, 41, 0.7)"
+    map_style = "carto-darkmatter"
+    nav_bg = "#111726"
+else:
+    bg_main = "linear-gradient(180deg, #F0F4F9 0%, #E6ECF5 100%)"
+    card_bg = "#FFFFFF"
+    card_border = "#CBD5E1"
+    text_primary = "#0F172A"
+    text_secondary = "#475569"
+    accent_primary = "#E34C26"
+    accent_secondary = "#0284C7"
+    plotly_template = "plotly_white"
+    plot_bg = "#FFFFFF"
+    map_style = "carto-positron"
+    nav_bg = "#FFFFFF"
+
+# --- COSMIC / TECHNICAL UI STYLING (ENLARGED FONTS) ---
+st.markdown(f"""
+<style>
+    .stApp {{
+        background: {bg_main};
+        color: {text_primary};
+        font-size: 16px;
+    }}
+    p, li, span, div {{
+        font-size: 16px;
+    }}
+    .hero-card {{
+        background: {card_bg};
+        border: 1px solid {card_border};
+        border-top: 3px solid {accent_primary};
+        border-radius: 12px;
+        padding: 32px 36px;
+        margin-bottom: 24px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22);
+    }}
+    .hero-badge {{
+        display: inline-block;
+        font-family: monospace;
+        font-size: 14px;
+        font-weight: 700;
+        color: {accent_secondary};
+        letter-spacing: 1.2px;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+    }}
+    .hero-title {{
+        font-size: 36px !important;
+        font-weight: 800;
+        color: {text_primary};
+        line-height: 1.2;
+        margin-bottom: 12px;
+    }}
+    .hero-desc {{
+        font-size: 18px !important;
+        color: {text_secondary};
+        line-height: 1.6;
+        max-width: 960px;
+    }}
+    .exec-box {{
+        background: {card_bg};
+        border-left: 5px solid {accent_primary};
+        border-top: 1px solid {card_border};
+        border-right: 1px solid {card_border};
+        border-bottom: 1px solid {card_border};
+        border-radius: 8px;
+        padding: 18px 22px;
+        margin-bottom: 22px;
+    }}
+    .exec-title {{
+        font-size: 14px !important;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: {accent_primary};
+        letter-spacing: 0.8px;
+        margin-bottom: 8px;
+    }}
+    .exec-text {{
+        font-size: 16px !important;
+        color: {text_primary};
+        line-height: 1.6;
+    }}
+    .live-banner {{
+        background-color: rgba(46, 160, 67, 0.14);
+        border: 1px solid rgba(46, 160, 67, 0.45);
+        border-left: 5px solid #2EA043;
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin-bottom: 20px;
+        color: {text_primary};
+        font-size: 16px !important;
+    }}
+    .live-alert {{
+        background-color: rgba(227, 76, 38, 0.16);
+        border: 1px solid rgba(227, 76, 38, 0.5);
+        border-left: 5px solid #E34C26;
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin-bottom: 20px;
+        color: {text_primary};
+        font-size: 16px !important;
+    }}
+    .caveat-box {{
+        background-color: rgba(210, 153, 34, 0.12);
+        border: 1px solid rgba(210, 153, 34, 0.45);
+        border-left: 5px solid #D29922;
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin-top: 14px;
+        margin-bottom: 18px;
+        font-size: 15px !important;
+        color: {text_primary};
+    }}
+    div[data-testid="stMetric"] {{
+        background: {card_bg};
+        border: 1px solid {card_border};
+        border-radius: 10px;
+        padding: 16px 20px;
+    }}
+    div[data-testid="stMetricLabel"] {{
+        color: {text_secondary} !important;
+        font-size: 14px !important;
+        font-weight: 600 !important;
+    }}
+    div[data-testid="stMetricValue"] {{
+        color: {text_primary} !important;
+        font-size: 25px !important;
+        font-weight: 700 !important;
+    }}
+    div[data-baseweb="radio"] > div {{
+        background: {nav_bg};
+        border: 1px solid {card_border};
+        border-radius: 10px;
+        padding: 6px 12px;
+    }}
+</style>
 """, unsafe_allow_html=True)
 
 
@@ -298,9 +332,9 @@ firms_key = get_firms_api_key()
 
 # --- SIDEBAR PARAMETERS ---
 with st.sidebar:
-    st.markdown("#### Live Satellite Stream (NRT)")
+    st.markdown("### Orbital Telemetry Controls")
     live_days = st.selectbox(
-        "Live Lookback Window",
+        "Live NRT Lookback Window",
         [1, 2],
         index=1,
         format_func=lambda d: f"Last {d*24} Hours"
@@ -310,12 +344,11 @@ with st.sidebar:
         min_value=50,
         max_value=95,
         value=75,
-        step=5,
-        help="High threshold (>=75%) eliminates industrial/solar false positives."
+        step=5
     )
 
     st.markdown("---")
-    st.markdown("#### Archive Query Parameters")
+    st.markdown("### Archive Query Parameters")
     years = sorted(harm_df["year"].unique())
     selected_years = st.multiselect(
         "Observation Period (Years)", years, default=years
@@ -344,7 +377,7 @@ with st.sidebar:
         )
 
     st.markdown("---")
-    st.markdown("#### Data Export")
+    st.markdown("### Data Export")
 
 f_harm = harm_df[
     (harm_df["year"].isin(selected_years)) &
@@ -365,80 +398,17 @@ f_viirs = viirs_df[
 with st.sidebar:
     csv_export = f_harm.head(10000).to_csv(index=False).encode("utf-8")
     st.download_button(
-        label="Download Full Harmonized CSV",
+        label="Download Harmonized CSV",
         data=csv_export,
         file_name="harmonized_fire_events.csv",
         mime="text/csv"
     )
     st.markdown("---")
-    st.caption("Archive: NASA FIRMS (MODIS C6.1 & VIIRS S-NPP C2)")
-    st.caption("NRT Stream: MODIS + VIIRS S-NPP + NOAA-20")
+    st.caption("Constellation: Aqua • Terra • Suomi-NPP • NOAA-20")
 
-# --- OPERATIONAL DECISION BRIEF & SEASONAL PRIORITIZATION ---
-if len(f_harm) > 0:
-    monthly_counts = (
-        f_harm.groupby("month")["fire_activity_index"]
-        .count()
-        .sort_values(ascending=False)
-    )
-    top_months = [month_names.get(m, str(m)) for m in monthly_counts.head(2).index]
-    peak_window = " – ".join(top_months)
-    primary_month = monthly_counts.index[0]
-
-    if primary_month in [6, 7, 8, 9]:
-        regime_label = "High-Intensity Canopy & Wildland Fire Regime"
-        action_rec = (
-            "Prioritize pre-positioning of aerial suppression assets, "
-            "thermal watchtowers, and rapid initial-attack crews 3 weeks "
-            "prior to peak window."
-        )
-    elif primary_month in [10, 11]:
-        regime_label = "Post-Harvest Agricultural Stubble & Residue Regime"
-        action_rec = (
-            "Deploy ground-based agricultural inspection patrols and "
-            "enforce controlled-burn permits to prevent wildland-urban "
-            "interface escape."
-        )
-    else:
-        regime_label = "Low-Intensity / Transitional Thermal Regime"
-        action_rec = (
-            "Maintain baseline satellite monitoring and verify isolated "
-            "thermal detections against industrial or cloud-edge false "
-            "positives."
-        )
-
-    st.markdown(f"""
-    <div class="exec-box">
-        <div class="exec-title">
-            Operational Decision Brief & Seasonal Prioritization • {region_preset}
-        </div>
-        <div class="exec-text">
-            <strong>Highest-Risk Months:</strong> {peak_window} &nbsp;|&nbsp;
-            <strong>Dominant Fire Regime:</strong> {regime_label}<br>
-            <strong>Preparedness Recommendation:</strong> {action_rec}
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-# --- SUMMARY METRICS ---
-col1, col2, col3, col4 = st.columns(4)
-raw_total = len(f_modis) + len(f_viirs)
-harm_total = len(f_harm)
-reduction = ((raw_total - harm_total) / raw_total * 100) if raw_total > 0 else 0
-
-mean_frp_val = f_harm["total_frp"].mean() if harm_total > 0 else 0.0
-mean_frp_err = mean_frp_val * 0.15
-dual_count = len(f_harm[f_harm["sensor_count"] == 2])
-
-col1.metric("Archive Raw Detections", f"{raw_total:,}")
-col2.metric("Harmonized Fire Events", f"{harm_total:,}", f"-{reduction:.1f}% spatial overlap")
-col3.metric("Dual-Sensor Coincident", f"{dual_count:,}")
-col4.metric("Mean Radiative Power", f"{mean_frp_val:.1f} ± {mean_frp_err:.1f} MW")
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-# --- NAVIGATION TABS ---
-tab_live, tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+# --- TOP PAGE NAVIGATION (SEPARATE PAGES) ---
+PAGES = [
+    "Mission Overview",
     "Live NRT Surveillance",
     "Seasonal Calendar & Gaps",
     "Monthly Monitoring",
@@ -447,11 +417,139 @@ tab_live, tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "Calibration Validation",
     "Thermodynamic Modeling",
     "Methodology & Caveats"
-])
+]
 
-# === TAB 0: LIVE NRT SURVEILLANCE ===
-with tab_live:
-    st.markdown("##### Near Real-Time (NRT) Orbital Fire Verification & Thermal Comparison")
+active_page = st.radio(
+    "Mission Modules",
+    PAGES,
+    horizontal=True,
+    label_visibility="collapsed"
+)
+
+st.markdown("<hr style='margin-top:8px; margin-bottom:22px; opacity:0.25;'>", unsafe_allow_html=True)
+
+# Shared KPI calculations
+raw_total = len(f_modis) + len(f_viirs)
+harm_total = len(f_harm)
+reduction = ((raw_total - harm_total) / raw_total * 100) if raw_total > 0 else 0
+mean_frp_val = f_harm["total_frp"].mean() if harm_total > 0 else 0.0
+mean_frp_err = mean_frp_val * 0.15
+dual_count = len(f_harm[f_harm["sensor_count"] == 2])
+
+# ==============================================================================
+# PAGE 0: MISSION OVERVIEW (DEDICATED LANDING PAGE)
+# ==============================================================================
+if active_page == "Mission Overview":
+    st.markdown("""
+    <div class="hero-card">
+        <div class="hero-badge">
+            🛰️ NASA FIRMS ARCHIVE & NRT STREAM • MULTI-SENSOR HARMONIZATION
+        </div>
+        <div class="hero-title">
+            MODIS & VIIRS Fire Activity Calendar, Live NRT & Thermal Analysis
+        </div>
+        <div class="hero-desc">
+            A multi-sensor Earth observation platform aligning MODIS (1 km) and VIIRS (375 m)
+            orbital thermal anomalies onto a unified 0.01° spatial grid—combining near real-time
+            satellite overpass verification, seasonal fire regime calendars, and bounded
+            radiative combustion kinetics across Türkiye.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Archive Raw Detections", f"{raw_total:,}")
+    col2.metric("Harmonized Fire Events", f"{harm_total:,}", f"-{reduction:.1f}% spatial overlap")
+    col3.metric("Dual-Sensor Coincident", f"{dual_count:,}")
+    col4.metric("Mean Radiative Power", f"{mean_frp_val:.1f} ± {mean_frp_err:.1f} MW")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    if len(f_harm) > 0:
+        monthly_counts = (
+            f_harm.groupby("month")["fire_activity_index"]
+            .count()
+            .sort_values(ascending=False)
+        )
+        top_months = [month_names.get(m, str(m)) for m in monthly_counts.head(2).index]
+        peak_window = " – ".join(top_months)
+        primary_month = monthly_counts.index[0]
+
+        if primary_month in [6, 7, 8, 9]:
+            regime_label = "High-Intensity Canopy & Wildland Fire Regime"
+            action_rec = (
+                "Prioritize pre-positioning of aerial suppression assets, "
+                "thermal watchtowers, and rapid initial-attack crews 3 weeks "
+                "prior to peak window."
+            )
+        elif primary_month in [10, 11]:
+            regime_label = "Post-Harvest Agricultural Stubble & Residue Regime"
+            action_rec = (
+                "Deploy ground-based agricultural inspection patrols and "
+                "enforce controlled-burn permits to prevent wildland-urban "
+                "interface escape."
+            )
+        else:
+            regime_label = "Low-Intensity / Transitional Thermal Regime"
+            action_rec = (
+                "Maintain baseline satellite monitoring and verify isolated "
+                "thermal detections against industrial or cloud-edge false "
+                "positives."
+            )
+
+        st.markdown(f"""
+        <div class="exec-box">
+            <div class="exec-title">
+                Operational Decision Brief & Seasonal Prioritization • {region_preset}
+            </div>
+            <div class="exec-text">
+                <strong>Highest-Risk Months:</strong> {peak_window} &nbsp;|&nbsp;
+                <strong>Dominant Fire Regime:</strong> {regime_label}<br>
+                <strong>Preparedness Recommendation:</strong> {action_rec}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    c_intro1, c_intro2, c_intro3 = st.columns(3)
+    with c_intro1:
+        st.markdown(f"""
+        <div class="exec-box" style="border-left-color: {accent_secondary};">
+            <div class="exec-title" style="color: {accent_secondary};">01 • Live Orbital Stream</div>
+            <div class="exec-text">
+                Tracks real-time MODIS & VIIRS overpasses (Suomi-NPP & NOAA-20),
+                calculates exact overpass latency in hours/minutes, and filters
+                high-confidence active fires.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c_intro2:
+        st.markdown(f"""
+        <div class="exec-box" style="border-left-color: {accent_secondary};">
+            <div class="exec-title" style="color: {accent_secondary};">02 • Spatiotemporal Calendar</div>
+            <div class="exec-text">
+                Maps multi-year seasonal matrices and daily progressions while
+                explicitly distinguishing zero-detection periods from cloud-masked
+                orbital gaps.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    with c_intro3:
+        st.markdown(f"""
+        <div class="exec-box" style="border-left-color: {accent_secondary};">
+            <div class="exec-title" style="color: {accent_secondary};">03 • Radiative Kinetics</div>
+            <div class="exec-text">
+                Derives instantaneous dry biomass burn rates (ṁ) and radiative
+                heat flux (q'') with full Root-Sum-Square (RSS) sensor uncertainty
+                propagation.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+# ==============================================================================
+# PAGE 1: LIVE NRT SURVEILLANCE
+# ==============================================================================
+elif active_page == "Live NRT Surveillance":
+    st.markdown("### Near Real-Time (NRT) Orbital Fire Verification & Thermal Comparison")
 
     if not firms_key:
         st.warning(
@@ -572,13 +670,14 @@ with tab_live:
                     "Probable Thermal Hotspot (Single-Pass High Conf)": "#D29922"
                 },
                 hover_data=["Last Pass (TRT)", "total_frp", "max_conf", "unique_sensors"],
-                zoom=5.4,
-                height=620,
-                map_style="carto-darkmatter"
+                zoom=5.5,
+                height=650,
+                map_style=map_style
             )
             fig_lmap.update_layout(
                 title="Live Verified Thermal Map (MODIS + VIIRS S-NPP & NOAA-20 NRT)",
-                margin=dict(l=0, r=0, t=40, b=0),
+                template=plotly_template,
+                margin=dict(l=0, r=0, t=44, b=0),
                 paper_bgcolor="rgba(0,0,0,0)"
             )
             st.plotly_chart(fig_lmap, use_container_width=True)
@@ -588,14 +687,15 @@ with tab_live:
                 empty_df,
                 lat="lat",
                 lon="lon",
-                zoom=5.4,
-                height=620,
-                map_style="carto-darkmatter"
+                zoom=5.5,
+                height=650,
+                map_style=map_style
             )
             fig_empty.update_traces(marker=dict(size=0, opacity=0))
             fig_empty.update_layout(
                 title="Live Verified Thermal Map — Zero Active Hotspots Detected",
-                margin=dict(l=0, r=0, t=40, b=0),
+                template=plotly_template,
+                margin=dict(l=0, r=0, t=44, b=0),
                 paper_bgcolor="rgba(0,0,0,0)"
             )
             st.plotly_chart(fig_empty, use_container_width=True)
@@ -619,25 +719,28 @@ with tab_live:
                 "Live 24h Equivalent"
             ],
             y=[hist_daily_avg, live_daily_rate],
-            marker_color=["#388BFD", "#E34C26"],
+            marker_color=["#38BDF8", "#FF5722"],
             text=[f"{hist_daily_avg:.1f}", f"{live_daily_rate:.1f}"],
             textposition="auto",
-            width=[0.4, 0.4],
+            width=[0.38, 0.38],
             name="Daily Event Rate"
         ))
         fig_lcomp.update_layout(
             title=f"Live Activity vs. {full_month_names[cur_month]} Climatological Normal",
             yaxis_title="Events / 24h",
+            template=plotly_template,
             paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="#161B22",
-            height=340,
-            margin=dict(t=40)
+            plot_bgcolor=plot_bg,
+            height=350,
+            margin=dict(t=44)
         )
         st.plotly_chart(fig_lcomp, use_container_width=True)
 
-# === TAB 1: SEASONAL CALENDAR ===
-with tab1:
-    st.markdown("##### Monthly Fire Regime Matrix & Observation-Gap Transparency")
+# ==============================================================================
+# PAGE 2: SEASONAL CALENDAR & GAPS
+# ==============================================================================
+elif active_page == "Seasonal Calendar & Gaps":
+    st.markdown("### Monthly Fire Regime Matrix & Observation-Gap Transparency")
     if len(f_harm) > 0:
         min_d, max_d = f_harm["acq_date"].min(), f_harm["acq_date"].max()
         full_dates = pd.date_range(min_d, max_d, freq="D")
@@ -670,23 +773,27 @@ with tab1:
         aspect="auto"
     )
     fig_cal.update_layout(
+        template=plotly_template,
         paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="#21262D",
-        margin=dict(t=20)
+        plot_bgcolor=plot_bg,
+        height=480,
+        margin=dict(t=24)
     )
     st.plotly_chart(fig_cal, use_container_width=True)
     st.markdown("""
     <div class="caveat-box">
         <strong>Observation-Gap Transparency ("Empty Cell" Distinction):</strong>
-        Dark gray blank cells represent periods with <strong>zero valid orbital detections</strong>—which
+        Blank cells represent periods with <strong>zero valid orbital detections</strong>—which
         may result from heavy cloud cover, dense smoke obscuration, or orbital swath gaps rather
         than confirmed absence of fire.
     </div>
     """, unsafe_allow_html=True)
 
-# === TAB 2: MONTHLY MONITORING ===
-with tab2:
-    st.markdown("##### Dedicated Month-by-Month Surveillance & Daily Progression")
+# ==============================================================================
+# PAGE 3: MONTHLY MONITORING
+# ==============================================================================
+elif active_page == "Monthly Monitoring":
+    st.markdown("### Dedicated Month-by-Month Surveillance & Daily Progression")
     if len(f_harm) > 0:
         default_idx = int(
             f_harm.groupby("month")["fire_activity_index"].count().idxmax() - 1
@@ -761,9 +868,10 @@ with tab2:
     )
     fig_day_cal.update_layout(
         title=f"Daily Matrix — {full_month_names[sel_month]} (Blank = No Obs / Cloud-Masked)",
+        template=plotly_template,
         paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="#21262D",
-        margin=dict(t=40)
+        plot_bgcolor=plot_bg,
+        margin=dict(t=44)
     )
     st.plotly_chart(fig_day_cal, use_container_width=True)
 
@@ -780,7 +888,7 @@ with tab2:
         fig_yr_m.add_trace(go.Bar(
             x=yr_comp["year"].astype(str),
             y=yr_comp["events"],
-            marker_color="#E34C26",
+            marker_color="#FF5722",
             name="Harmonized Events"
         ))
         if len(yr_comp) > 1 and yr_comp["events"].std() > 0:
@@ -795,10 +903,11 @@ with tab2:
             title=f"Inter-Annual Comparison ({full_month_names[sel_month]})",
             xaxis_title="Year",
             yaxis_title="Harmonized Events",
+            template=plotly_template,
             paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="#161B22",
-            height=400,
-            margin=dict(t=40)
+            plot_bgcolor=plot_bg,
+            height=430,
+            margin=dict(t=44)
         )
         st.plotly_chart(fig_yr_m, use_container_width=True)
 
@@ -811,34 +920,28 @@ with tab2:
                 lon="longitude",
                 size="total_frp",
                 color="sensor_count",
-                color_continuous_scale=["#D29922", "#E34C26"],
+                color_continuous_scale=["#D29922", "#FF5722"],
                 labels={"sensor_count": "Sensors", "total_frp": "FRP (MW)"},
                 hover_data=["acq_date", "total_frp", "max_conf"],
                 zoom=4.8,
-                height=400,
-                map_style="carto-darkmatter"
+                height=430,
+                map_style=map_style
             )
             fig_m_map.update_layout(
                 title=f"Top Spatial Hotspots ({full_month_names[sel_month]})",
-                margin=dict(l=0, r=0, t=40, b=0),
+                template=plotly_template,
+                margin=dict(l=0, r=0, t=44, b=0),
                 paper_bgcolor="rgba(0,0,0,0)"
             )
             st.plotly_chart(fig_m_map, use_container_width=True)
         else:
             st.info(f"No valid detections recorded for {full_month_names[sel_month]}.")
 
-    if m_events > 0:
-        m_csv = m_harm.to_csv(index=False).encode("utf-8")
-        st.download_button(
-            label=f"Download {full_month_names[sel_month]} Harmonized Dataset (CSV)",
-            data=m_csv,
-            file_name=f"harmonized_fire_{full_month_names[sel_month].lower()}.csv",
-            mime="text/csv"
-        )
-
-# === TAB 3: CLIMATOLOGICAL ANOMALY ===
-with tab3:
-    st.markdown("##### Climatological Seasonal Baseline, Anomalies (+2σ) & Missing Days")
+# ==============================================================================
+# PAGE 4: CLIMATOLOGICAL ANOMALY
+# ==============================================================================
+elif active_page == "Climatological Anomaly":
+    st.markdown("### Climatological Seasonal Baseline, Anomalies (+2σ) & Missing Days")
     if len(f_harm) > 0:
         min_d, max_d = f_harm["acq_date"].min(), f_harm["acq_date"].max()
         full_calendar = pd.DataFrame({"acq_date": pd.date_range(min_d, max_d, freq="D")})
@@ -873,12 +976,12 @@ with tab3:
         fig_anom.add_trace(go.Scatter(
             x=daily["acq_date"], y=daily["clim_mean"],
             mode="lines", name="Seasonal Climatological Normal (μ)",
-            line=dict(color="#58A6FF", width=2)
+            line=dict(color="#38BDF8", width=2.5)
         ))
         fig_anom.add_trace(go.Scatter(
             x=daily["acq_date"], y=daily["upper_2sigma"],
             mode="lines", name="Seasonal +2σ Threshold",
-            line=dict(color="#D29922", width=1.5, dash="dash")
+            line=dict(color="#D29922", width=2, dash="dash")
         ))
 
         normal_pts = valid_days[valid_days["Classification"] == "Normal"]
@@ -887,31 +990,35 @@ with tab3:
         fig_anom.add_trace(go.Scatter(
             x=normal_pts["acq_date"], y=normal_pts["event_count"],
             mode="markers", name="Normal Activity",
-            marker=dict(color="#8B949E", size=5, opacity=0.65)
+            marker=dict(color="#8B949E", size=6, opacity=0.65)
         ))
         fig_anom.add_trace(go.Scatter(
             x=anom_pts["acq_date"], y=anom_pts["event_count"],
             mode="markers", name="Extreme Anomaly (> +2σ)",
-            marker=dict(color="#E34C26", size=8)
+            marker=dict(color="#FF5722", size=9)
         ))
         fig_anom.add_trace(go.Scatter(
             x=no_obs_days["acq_date"], y=[0] * len(no_obs_days),
             mode="markers", name="No Observation / Cloud-Masked Day",
-            marker=dict(color="#484F58", size=5, symbol="x")
+            marker=dict(color="#64748B", size=6, symbol="x")
         ))
 
         fig_anom.update_layout(
             xaxis_title="Date",
             yaxis_title="Daily Harmonized Fire Events",
+            template=plotly_template,
             paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="#161B22",
-            margin=dict(t=20)
+            plot_bgcolor=plot_bg,
+            height=520,
+            margin=dict(t=24)
         )
         st.plotly_chart(fig_anom, use_container_width=True)
 
-# === TAB 4: SPATIAL DISTRIBUTION ===
-with tab4:
-    st.markdown("##### Geospatial Distribution of High-Intensity Events (Top 3,000 by FAI)")
+# ==============================================================================
+# PAGE 5: SPATIAL DISTRIBUTION
+# ==============================================================================
+elif active_page == "Spatial Distribution":
+    st.markdown("### Geospatial Distribution of High-Intensity Events (Top 3,000 by FAI)")
     sample_map = f_harm.sort_values("fire_activity_index", ascending=False).head(3000)
     fig_map = px.scatter_map(
         sample_map,
@@ -919,23 +1026,29 @@ with tab4:
         lon="longitude",
         size="total_frp",
         color="sensor_count",
-        color_continuous_scale=["#D29922", "#E34C26"],
+        color_continuous_scale=["#D29922", "#FF5722"],
         labels={"sensor_count": "Sensor Count", "total_frp": "FRP (MW)", "max_conf": "Confidence (%)"},
         hover_data=["acq_date", "total_frp", "max_conf"],
-        zoom=5,
-        height=550,
-        map_style="carto-darkmatter"
+        zoom=5.3,
+        height=640,
+        map_style=map_style
     )
-    fig_map.update_layout(margin=dict(l=0, r=0, t=10, b=0), paper_bgcolor="rgba(0,0,0,0)")
+    fig_map.update_layout(
+        template=plotly_template,
+        margin=dict(l=0, r=0, t=12, b=0),
+        paper_bgcolor="rgba(0,0,0,0)"
+    )
     st.plotly_chart(fig_map, use_container_width=True)
     st.caption(
         "Hotspot ≠ Burned Area: Plotted coordinates indicate active thermal anomalies "
         "within 0.01° grid cells and do not directly represent total burned acreage."
     )
 
-# === TAB 5: CALIBRATION VALIDATION ===
-with tab5:
-    st.markdown("##### Statistical Calibration Consistency & Resolution Bias Correction")
+# ==============================================================================
+# PAGE 6: CALIBRATION VALIDATION
+# ==============================================================================
+elif active_page == "Calibration Validation":
+    st.markdown("### Statistical Calibration Consistency & Resolution Bias Correction")
     m_monthly = f_modis.groupby("month").size().reset_index(name="MODIS (1 km)")
     v_monthly = f_viirs.groupby("month").size().reset_index(name="VIIRS (375 m)")
     h_monthly = f_harm.groupby("month").size().reset_index(name="Harmonized")
@@ -963,7 +1076,7 @@ with tab5:
     fig_comp = go.Figure()
     fig_comp.add_trace(go.Bar(
         x=comp["Month"], y=comp["MODIS (1 km)"],
-        name="MODIS (1 km)", marker_color="#388BFD"
+        name="MODIS (1 km)", marker_color="#38BDF8"
     ))
     fig_comp.add_trace(go.Bar(
         x=comp["Month"], y=comp["VIIRS (375 m)"],
@@ -972,21 +1085,25 @@ with tab5:
     fig_comp.add_trace(go.Scatter(
         x=comp["Month"], y=comp["Harmonized"],
         name="Harmonized Grid Events", mode="lines+markers",
-        line=dict(color="#E34C26", width=3)
+        line=dict(color="#FF5722", width=3.5)
     ))
     fig_comp.update_layout(
         barmode="group",
         xaxis_title="Month",
         yaxis_title="Event Count",
+        template=plotly_template,
         paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="#161B22",
-        margin=dict(t=20)
+        plot_bgcolor=plot_bg,
+        height=480,
+        margin=dict(t=24)
     )
     st.plotly_chart(fig_comp, use_container_width=True)
 
-# === TAB 6: THERMODYNAMIC MODELING ===
-with tab6:
-    st.markdown("##### Bounded Radiative Power & Combustion Kinetics")
+# ==============================================================================
+# PAGE 7: THERMODYNAMIC MODELING
+# ==============================================================================
+elif active_page == "Thermodynamic Modeling":
+    st.markdown("### Bounded Radiative Power & Combustion Kinetics")
     st.caption(
         "Instantaneous quantities derived from orbital Fire Radiative Power (FRP ±15%) "
         "and Wooster et al. (2005) combustion factor (0.368 ± 0.05 kg/MJ). "
@@ -1036,24 +1153,26 @@ with tab6:
             visible=True,
             color="#8B949E"
         ),
-        marker_color="#E34C26",
+        marker_color="#FF5722",
         name="Cumulative Snapshot FRP (MW)"
     ))
     fig_eng.update_layout(
         xaxis_title="Month",
         yaxis_title="Cumulative Snapshot Radiative Power (MW ± 15%)",
+        template=plotly_template,
         paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="#161B22",
-        margin=dict(t=20)
+        plot_bgcolor=plot_bg,
+        height=440,
+        margin=dict(t=24)
     )
     st.plotly_chart(fig_eng, use_container_width=True)
 
-    st.markdown("""
-    <div style="background-color: #161B22; border: 1px solid #30363D; border-left: 4px solid #58A6FF; border-radius: 6px; padding: 16px 20px; margin-top: 16px;">
-        <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: #58A6FF; letter-spacing: 0.6px; margin-bottom: 8px;">
+    st.markdown(f"""
+    <div class="exec-box" style="border-left-color: {accent_secondary}; margin-top: 18px;">
+        <div class="exec-title" style="color: {accent_secondary};">
             Governing Thermodynamic & Biomass Equations
         </div>
-        <div style="font-size: 13.5px; color: #C9D1D9; line-height: 1.65;">
+        <div class="exec-text">
             • <strong>Instantaneous Biomass Burn Rate (Wooster et al., 2005):</strong> &nbsp;
               <code>ṁ = 0.368 × FRP [kg/s]</code> &nbsp; <em>(RSS Uncertainty: ±20.2%)</em><br>
             • <strong>Peak Grid Radiative Heat Flux (0.01° ≈ 1.21 km² cell):</strong> &nbsp;
@@ -1064,8 +1183,10 @@ with tab6:
     </div>
     """, unsafe_allow_html=True)
 
-# === TAB 7: METHODOLOGY & CAVEATS ===
-with tab7:
+# ==============================================================================
+# PAGE 8: METHODOLOGY & CAVEATS
+# ==============================================================================
+elif active_page == "Methodology & Caveats":
     st.markdown("""
     <div class="caveat-box">
         <strong>Limitations & Ground-Truth Caveat (Hotspot ≠ Burned Area):</strong><br>
@@ -1077,7 +1198,7 @@ with tab7:
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("##### Harmonization Pipeline, Governing Equations & Uncertainty Budget")
+    st.markdown("### Harmonization Pipeline, Governing Equations & Uncertainty Budget")
     st.markdown("""
     1. **Spatial Resampling:** Native VIIRS (375 m) and MODIS (1 km) centroids are binned
        onto a unified $0.01^\\circ \\times 0.01^\\circ$ (~$1.11\\text{ km}$) geographic grid
@@ -1091,5 +1212,5 @@ with tab7:
        - Instantaneous biomass burn rate: $\\dot{m}_b = 0.368 \\times \\text{FRP}\\ [\\text{kg/s}]$ *(Wooster et al., 2005)*
        - Single-year integrated dry biomass loss ($\\Delta t_{\\text{eff}} = 3600\\ \\text{s}$): $M_y = 1.3248 \\sum_{i=1}^{N_y} \\overline{\\text{FRP}}_i\\ [\\text{t/yr}]$ with RSS uncertainty $\\delta_M = \\sqrt{0.15^2 + 0.136^2 + 0.25^2} \\approx \\pm 32.2\\%$.
     """)
-    st.markdown("##### Sample Harmonized Records")
+    st.markdown("### Sample Harmonized Records")
     st.dataframe(f_harm.head(50), use_container_width=True)
