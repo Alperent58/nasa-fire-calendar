@@ -20,10 +20,9 @@ if "ui_theme" not in st.session_state:
 # --- TOP BAR: THEME TOGGLE ON TOP RIGHT ---
 top_spacer, top_theme_col = st.columns([6.0, 2.0])
 with top_theme_col:
-    theme_choice = st.radio(
-        "Theme",
+    theme_choice = st.selectbox(
+        "Theme Mode",
         ["Dark Space", "Light Mode"],
-        horizontal=True,
         label_visibility="collapsed",
         index=0 if st.session_state.ui_theme == "Dark Space" else 1
     )
@@ -45,8 +44,9 @@ if is_dark:
     plot_bg = "rgba(19, 25, 41, 0.85)"
     chart_font_color = "#F8FAFC"
     map_style = "carto-darkmatter"
-    nav_bg = "#131A2B"
-    nav_pill_bg = "#1C263E"
+    nav_bar_bg = "#101726"
+    nav_item_bg = "#162035"
+    nav_active_bg = "#233152"
     input_bg = "#161E31"
 else:
     bg_main = "#F1F5F9"
@@ -61,11 +61,12 @@ else:
     plot_bg = "#FFFFFF"
     chart_font_color = "#090D16"
     map_style = "carto-positron"
-    nav_bg = "#FFFFFF"
-    nav_pill_bg = "#E2E8F0"
+    nav_bar_bg = "#FFFFFF"
+    nav_item_bg = "#F1F5F9"
+    nav_active_bg = "#FFFFFF"
     input_bg = "#FFFFFF"
 
-# --- GLOBAL ENLARGED TYPOGRAPHY & HIGH-CONTRAST THEME CSS ---
+# --- GLOBAL ENLARGED TYPOGRAPHY & SEGMENTED NAVBAR CSS ---
 st.markdown(f"""
 <style>
     .stApp {{
@@ -110,35 +111,54 @@ st.markdown(f"""
         color: {text_secondary} !important;
         font-size: 15px !important;
     }}
-    /* Enlarged, bold top navigation & radio buttons */
+
+    /* SEGMENTED FULL-BOX NAVBAR (STYLE MATCHING REFERENCE IMAGE 3) */
     div[data-baseweb="radio"] > div {{
-        background: {nav_bg} !important;
-        border: 2px solid {card_border} !important;
-        border-radius: 12px !important;
-        padding: 12px 16px !important;
-        gap: 12px !important;
+        display: flex !important;
         flex-wrap: wrap !important;
+        background: {nav_bar_bg} !important;
+        border: 1.5px solid {card_border} !important;
+        border-radius: 6px !important;
+        padding: 0 !important;
+        gap: 0 !important;
+        overflow: hidden !important;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12) !important;
+    }}
+    /* Hide default radio circles */
+    div[data-baseweb="radio"] label > div:first-child {{
+        display: none !important;
     }}
     div[data-baseweb="radio"] label {{
-        background: {nav_pill_bg} !important;
-        border: 1.5px solid {card_border} !important;
-        border-radius: 8px !important;
-        padding: 8px 16px !important;
+        flex: 1 1 auto !important;
+        justify-content: center !important;
+        align-items: center !important;
+        background: {nav_item_bg} !important;
+        border-right: 1px solid {card_border} !important;
+        border-bottom: 1px solid {card_border} !important;
+        border-radius: 0 !important;
+        padding: 16px 22px !important;
         margin: 0 !important;
-        transition: all 0.15s ease-in-out !important;
+        cursor: pointer !important;
+        transition: background 0.15s ease !important;
+    }}
+    div[data-baseweb="radio"] label:hover {{
+        background: {nav_active_bg} !important;
     }}
     div[data-baseweb="radio"] label:has(input:checked) {{
-        border: 2px solid {accent_primary} !important;
-        box-shadow: 0 0 12px rgba(255, 87, 34, 0.35) !important;
+        background: {nav_active_bg} !important;
+        border-bottom: 4px solid {accent_primary} !important;
     }}
     div[data-baseweb="radio"] label p,
     div[data-baseweb="radio"] label div,
     div[data-baseweb="radio"] label span {{
         color: {text_primary} !important;
-        font-size: 20px !important;
+        font-size: 21px !important;
         font-weight: 800 !important;
-        letter-spacing: 0.3px !important;
+        letter-spacing: 0.2px !important;
+        text-align: center !important;
+        white-space: nowrap !important;
     }}
+
     /* Selectbox & Multiselect high contrast */
     div[data-baseweb="select"] > div {{
         background-color: {input_bg} !important;
@@ -150,6 +170,7 @@ st.markdown(f"""
         color: {text_primary} !important;
         font-size: 16px !important;
     }}
+
     /* Hero & Cards */
     .hero-card {{
         background: {card_bg};
@@ -318,7 +339,6 @@ def load_and_harmonize():
         viirs["confidence"].astype(str).str.lower().map(conf_map).fillna(70)
     )
 
-    # High-reliability threshold (>= 70%) applied across all archive calculations
     modis = modis[modis["norm_conf"] >= ARCHIVE_MIN_CONFIDENCE].copy()
     viirs = viirs[viirs["norm_conf"] >= ARCHIVE_MIN_CONFIDENCE].copy()
 
@@ -503,7 +523,7 @@ with st.sidebar:
     st.markdown("---")
     st.caption("Constellation: Aqua • Terra • Suomi-NPP • NOAA-20")
 
-# --- TOP PAGE NAVIGATION (SEPARATE PAGES) ---
+# --- TOP SEGMENTED BOX NAVIGATION ---
 PAGES = [
     "Mission Overview",
     "Live NRT Surveillance",
@@ -523,7 +543,7 @@ active_page = st.radio(
     label_visibility="collapsed"
 )
 
-st.markdown("<hr style='margin-top:10px; margin-bottom:26px; opacity:0.35;'>", unsafe_allow_html=True)
+st.markdown("<div style='margin-bottom:24px;'></div>", unsafe_allow_html=True)
 
 # Shared KPI calculations
 raw_total = len(f_modis) + len(f_viirs)
@@ -646,7 +666,7 @@ if active_page == "Mission Overview":
 # PAGE 1: LIVE NRT SURVEILLANCE
 # ==============================================================================
 elif active_page == "Live NRT Surveillance":
-    st.markdown("### Near Real-Time (NRT) Orbital Fire Verification & Thermal Comparison")
+    st.markdown("### Near Real-Time (NRT) Orbital Fire Verification")
 
     if not firms_key:
         st.warning(
@@ -768,7 +788,7 @@ elif active_page == "Live NRT Surveillance":
                 },
                 hover_data=["Last Pass (TRT)", "total_frp", "max_conf", "unique_sensors"],
                 zoom=5.5,
-                height=650,
+                height=680,
                 map_style=map_style
             )
             fig_lmap.update_layout(
@@ -786,7 +806,7 @@ elif active_page == "Live NRT Surveillance":
                 lat="lat",
                 lon="lon",
                 zoom=5.5,
-                height=650,
+                height=680,
                 map_style=map_style
             )
             fig_empty.update_traces(marker=dict(size=0, opacity=0))
@@ -798,43 +818,6 @@ elif active_page == "Live NRT Surveillance":
                 paper_bgcolor="rgba(0,0,0,0)"
             )
             st.plotly_chart(fig_empty, use_container_width=True)
-
-        # Full-Width Live vs. Climatological Normal Comparison Chart
-        cur_month = now_trt.month
-        hist_m = f_harm[f_harm["month"] == cur_month]
-        if len(hist_m) > 0:
-            hist_daily_avg = (
-                hist_m.groupby("acq_date")["fire_activity_index"].count().mean()
-            )
-        else:
-            hist_daily_avg = 0.0
-
-        live_daily_rate = len(live_grid) / float(live_days)
-
-        fig_lcomp = go.Figure()
-        fig_lcomp.add_trace(go.Bar(
-            x=[
-                f"Historical {full_month_names[cur_month]} Daily Avg (≥70%)",
-                "Live 24h Equivalent"
-            ],
-            y=[hist_daily_avg, live_daily_rate],
-            marker_color=["#0284C7", "#E34C26"],
-            text=[f"{hist_daily_avg:.1f}", f"{live_daily_rate:.1f}"],
-            textposition="auto",
-            width=[0.38, 0.38],
-            name="Daily Event Rate"
-        ))
-        fig_lcomp.update_layout(
-            title=f"Live Activity vs. {full_month_names[cur_month]} Climatological Normal (Confidence ≥ 70%)",
-            yaxis_title="Events / 24h",
-            template=plotly_template,
-            font=dict(size=15, color=chart_font_color),
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor=plot_bg,
-            height=360,
-            margin=dict(t=48)
-        )
-        st.plotly_chart(fig_lcomp, use_container_width=True)
 
 # ==============================================================================
 # PAGE 2: SEASONAL CALENDAR & GAPS
