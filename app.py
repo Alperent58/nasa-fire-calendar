@@ -6,9 +6,10 @@ import plotly.graph_objects as go
 import glob
 import os
 import calendar
+from datetime import datetime, timezone, timedelta
 
 st.set_page_config(
-    page_title="MODIS-VIIRS Fire Regime & Thermal Analysis",
+    page_title="MODIS-VIIRS Fire Regime & Live NRT Analysis",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -51,6 +52,26 @@ st.markdown("""
         padding: 14px 18px;
         margin-bottom: 20px;
     }
+    .live-banner {
+        background-color: rgba(46, 160, 67, 0.1);
+        border: 1px solid rgba(46, 160, 67, 0.4);
+        border-left: 4px solid #3FB950;
+        border-radius: 6px;
+        padding: 14px 18px;
+        margin-bottom: 18px;
+        color: #E6EDF3;
+        font-size: 14px;
+    }
+    .live-alert {
+        background-color: rgba(227, 76, 38, 0.12);
+        border: 1px solid rgba(227, 76, 38, 0.45);
+        border-left: 4px solid #E34C26;
+        border-radius: 6px;
+        padding: 14px 18px;
+        margin-bottom: 18px;
+        color: #E6EDF3;
+        font-size: 14px;
+    }
     .exec-title {
         font-size: 12px;
         font-weight: 700;
@@ -88,11 +109,11 @@ st.markdown("""
     }
     div[data-testid="stMetricValue"] {
         color: #F0F6FC !important;
-        font-size: 22px !important;
+        font-size: 21px !important;
         font-weight: 600 !important;
     }
     .stTabs [data-baseweb="tab-list"] {
-        gap: 18px;
+        gap: 16px;
         border-bottom: 1px solid #262C36;
     }
     .stTabs [data-baseweb="tab"] {
@@ -112,14 +133,14 @@ st.markdown("""
 st.markdown("""
 <div class="header-container">
     <div class="header-meta">
-        NASA FIRMS ARCHIVE • MULTI-SENSOR SPATIOTEMPORAL HARMONIZATION
+        NASA FIRMS ARCHIVE & NRT STREAM • MULTI-SENSOR HARMONIZATION
     </div>
     <div class="header-title">
-        MODIS & VIIRS Fire Activity Calendar and Radiative Energy Analysis
+        MODIS & VIIRS Fire Activity Calendar, Live NRT & Thermal Analysis
     </div>
     <div class="header-desc">
-        Cross-sensor spatial grid alignment (0.01°), confidence calibration,
-        month-by-month surveillance, and instantaneous radiative kinetics.
+        Cross-sensor spatial grid alignment (0.01°), near real-time orbital verification,
+        month-by-month surveillance, and bounded radiative kinetics.
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -148,7 +169,6 @@ def load_and_harmonize():
     modis = pd.concat(modis_list, ignore_index=True)
     viirs = pd.concat(viirs_list, ignore_index=True)
 
-    # 1. Confidence Normalization (0-100 scale)
     modis["norm_conf"] = pd.to_numeric(
         modis["confidence"], errors="coerce"
     ).fillna(50)
@@ -166,7 +186,6 @@ def load_and_harmonize():
     modis["sensor"] = "MODIS (1 km)"
     viirs["sensor"] = "VIIRS (375 m)"
 
-    # 2. Spatial-Temporal Grid Alignment (0.01 deg ~ 1.11 km)
     for df in [modis, viirs]:
         df["acq_date"] = pd.to_datetime(df["acq_date"])
         df["year"] = df["acq_date"].dt.year
@@ -191,7 +210,6 @@ def load_and_harmonize():
         raw_detections=("frp", "count")
     ).reset_index()
 
-    # Composite Fire Activity Index & Instantaneous Burn Rate
     conf_factor = harmonized["max_conf"] / 100.0
     dual_bonus = 1 + 0.25 * (harmonized["sensor_count"] - 1)
     harmonized["fire_activity_index"] = (
@@ -200,6 +218,58 @@ def load_and_harmonize():
     harmonized["biomass_rate_kg_s"] = harmonized["total_frp"] * 0.368
 
     return modis, viirs, harmonized, []
+
+
+@st.cache_data(ttl=600)
+def fetch_live_firms(api_key, day_range=2):
+    # Bounding box for Türkiye: west,south,east,north
+    bbox = "25.5,35.5,45.0,42.5"
+    sources = {
+        "MODIS_NRT": "MODIS (1 km)",
+        "VIIRS_SNPP_NRT": "VIIRS S-NPP (375 m)",
+        "VIIRS_NOAA20_NRT": "VIIRS NOAA-20 (375 m)"
+    }
+    frames = []
+    errors = []
+
+    for src_code, src_label in sources.items():
+        url = (
+            f"https://firms.modaps.eosdis.nasa.gov/api/area/csv/"
+            f"{api_key.strip()}/{src_code}/{bbox}/{day_range}"
+        )
+        try:
+            df_live = pd.read_csv(url)
+            if "latitude" in df_live.columns and len(df_live) > 0:
+                df_live["sensor_label"] = src_label
+                frames.append(df_live)
+        except Exception as e:
+            errors.append(f"{src_code}: {str(e)}")
+
+    if not frames:
+        return pd.DataFrame(), errors
+
+    live_all = pd.concat(frames, ignore_index=True)
+
+    # Normalize confidence
+    conf_map = {
+        "l": 30, "n": 70, "h": 95,
+        "low": 30, "nominal": 70, "high": 95
+    }
+    num_c = pd.to_numeric(live_all["confidence"], errors="coerce")
+    cat_c = live_all["confidence"].astype(str).str.lower().map(conf_map)
+    live_all["norm_conf"] = num_c.fillna(cat_c).fillna(50)
+
+    # Parse exact UTC overpass timestamp
+    time_str = live_all["acq_time"].astype(str).str.zfill(4)
+    dt_str = (
+        live_all["acq_date"].astype(str) + " " +
+        time_str.str[:2] + ":" + time_str.str[2:]
+    )
+    live_all["overpass_utc"] = pd.to_datetime(dt_str, utc=True, errors="coerce")
+    live_all["grid_lat"] = live_all["latitude"].round(2)
+    live_all["grid_lon"] = live_all["longitude"].round(2)
+
+    return live_all, errors
 
 
 modis_df, viirs_df, harm_df, debug_files = load_and_harmonize()
@@ -218,9 +288,28 @@ full_month_names = {
     9: "September", 10: "October", 11: "November", 12: "December"
 }
 
-# --- SIDEBAR PARAMETERS & GRANULAR AOI SELECTION ---
+# --- SIDEBAR PARAMETERS & LIVE API CONFIG ---
 with st.sidebar:
-    st.markdown("#### Query Parameters")
+    st.markdown("#### Live Satellite Stream (NRT)")
+    default_key = os.environ.get("FIRMS_MAP_KEY", "")
+    firms_key = st.text_input(
+        "NASA FIRMS MAP_KEY",
+        value=default_key,
+        type="password",
+        help="Free 32-char key from firms.modaps.eosdis.nasa.gov/api/area/"
+    )
+    live_days = st.selectbox("Live Lookback Window", [1, 2], index=1, format_func=lambda d: f"Last {d*24} Hours")
+    min_live_conf = st.slider(
+        "Live Verification Sensitivity (%)",
+        min_value=50,
+        max_value=95,
+        value=75,
+        step=5,
+        help="High threshold (>=75%) eliminates industrial/solar false positives."
+    )
+
+    st.markdown("---")
+    st.markdown("#### Archive Query Parameters")
     years = sorted(harm_df["year"].unique())
     selected_years = st.multiselect(
         "Observation Period (Years)", years, default=years
@@ -250,7 +339,6 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("#### Data Export")
-    st.caption("Export harmonized CSV records for GIS or CFD boundary setup.")
 
 f_harm = harm_df[
     (harm_df["year"].isin(selected_years)) &
@@ -277,8 +365,8 @@ with st.sidebar:
         mime="text/csv"
     )
     st.markdown("---")
-    st.caption("Data Source: NASA FIRMS (MODIS C6.1 & VIIRS S-NPP C2)")
-    st.caption("Uncertainty: ±15% sensor FRP, ±13.6% Wooster factor")
+    st.caption("Archive: NASA FIRMS (MODIS C6.1 & VIIRS S-NPP C2)")
+    st.caption("NRT Stream: MODIS + VIIRS S-NPP + NOAA-20")
 
 # --- OPERATIONAL DECISION BRIEF & SEASONAL PRIORITIZATION ---
 if len(f_harm) > 0:
@@ -336,7 +424,7 @@ mean_frp_val = f_harm["total_frp"].mean() if harm_total > 0 else 0.0
 mean_frp_err = mean_frp_val * 0.15
 dual_count = len(f_harm[f_harm["sensor_count"] == 2])
 
-col1.metric("Raw Sensor Detections", f"{raw_total:,}")
+col1.metric("Archive Raw Detections", f"{raw_total:,}")
 col2.metric("Harmonized Fire Events", f"{harm_total:,}", f"-{reduction:.1f}% spatial overlap")
 col3.metric("Dual-Sensor Coincident", f"{dual_count:,}")
 col4.metric("Mean Radiative Power", f"{mean_frp_val:.1f} ± {mean_frp_err:.1f} MW")
@@ -344,7 +432,8 @@ col4.metric("Mean Radiative Power", f"{mean_frp_val:.1f} ± {mean_frp_err:.1f} M
 st.markdown("<br>", unsafe_allow_html=True)
 
 # --- NAVIGATION TABS ---
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+tab_live, tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    "Live NRT Surveillance",
     "Seasonal Calendar & Gaps",
     "Monthly Monitoring",
     "Climatological Anomaly",
@@ -354,6 +443,182 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "Methodology & Caveats"
 ])
 
+# === TAB 0: LIVE NRT SURVEILLANCE ===
+with tab_live:
+    st.markdown("##### Near Real-Time (NRT) Orbital Fire Verification & Thermal Comparison")
+
+    if not firms_key:
+        st.info(
+            "Enter your free NASA FIRMS MAP_KEY in the left sidebar ('Live Satellite Stream') "
+            "to stream live MODIS, VIIRS S-NPP, and VIIRS NOAA-20 satellite overpasses."
+        )
+        st.markdown("""
+        <div class="caveat-box">
+            <strong>How Live Verification Works:</strong><br>
+            • Queries NASA FIRMS NRT feeds (MODIS C6.1, VIIRS S-NPP, VIIRS NOAA-20) over Türkiye.<br>
+            • Computes exact <strong>orbital overpass latency</strong> (hours/minutes since last satellite pass).<br>
+            • Applies high-sensitivity filtering (<strong>Confidence ≥ 75%</strong>) and cross-sensor coincidence
+              to distinguish <strong>Confirmed Active Fires</strong> from industrial heat or solar glint.
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        with st.spinner("Querying NASA FIRMS Near Real-Time orbital feeds..."):
+            live_raw, live_errs = fetch_live_firms(firms_key, day_range=live_days)
+
+        now_utc = datetime.now(timezone.utc)
+        trt_tz = timezone(timedelta(hours=3))
+        now_trt = now_utc.astimezone(trt_tz)
+
+        if len(live_raw) > 0 and live_raw["overpass_utc"].notna().any():
+            latest_pass_utc = live_raw["overpass_utc"].max()
+            latest_pass_trt = latest_pass_utc.astimezone(trt_tz)
+            age_delta = now_utc - latest_pass_utc
+            age_hours = int(age_delta.total_seconds() // 3600)
+            age_mins = int((age_delta.total_seconds() % 3600) // 60)
+            latency_str = f"{age_hours}h {age_mins}m ago"
+            pass_time_str = f"{latest_pass_trt.strftime('%Y-%m-%d %H:%M')} TRT ({latest_pass_utc.strftime('%H:%M')} UTC)"
+        else:
+            latency_str = "No recent overpass data"
+            pass_time_str = f"Checked at {now_trt.strftime('%Y-%m-%d %H:%M')} TRT"
+
+        # Filter live detections by AOI and High Sensitivity threshold
+        live_aoi = live_raw[
+            (live_raw["latitude"].between(lat_range[0], lat_range[1])) &
+            (live_raw["longitude"].between(lon_range[0], lon_range[1]))
+        ].copy() if len(live_raw) > 0 else pd.DataFrame()
+
+        high_sens_live = live_aoi[live_aoi["norm_conf"] >= min_live_conf].copy() if len(live_aoi) > 0 else pd.DataFrame()
+
+        if len(high_sens_live) > 0:
+            live_grid = high_sens_live.groupby(["grid_lat", "grid_lon"]).agg(
+                latitude=("latitude", "mean"),
+                longitude=("longitude", "mean"),
+                total_frp=("frp", "mean"),
+                max_conf=("norm_conf", "max"),
+                sensor_passes=("sensor_label", "count"),
+                unique_sensors=("sensor_label", "nunique"),
+                last_seen=("overpass_utc", "max")
+            ).reset_index()
+
+            live_grid["Verification_Status"] = np.where(
+                (live_grid["unique_sensors"] >= 2) | (live_grid["sensor_passes"] >= 2) | (live_grid["max_conf"] >= 90),
+                "Confirmed Active Fire (High Confidence / Multi-Pass)",
+                "Probable Thermal Hotspot (Single-Pass High Conf)"
+            )
+            confirmed_cnt = len(live_grid[live_grid["Verification_Status"].str.startswith("Confirmed")])
+        else:
+            live_grid = pd.DataFrame()
+            confirmed_cnt = 0
+
+        # Top Live Status Banner
+        if confirmed_cnt > 0:
+            st.markdown(f"""
+            <div class="live-alert">
+                <strong>ACTIVE FIRE ALERT ({region_preset}):</strong>
+                <strong>{confirmed_cnt}</strong> confirmed high-confidence active fire cells detected
+                within the last {live_days*24} hours. &nbsp;|&nbsp;
+                <strong>Latest Satellite Overpass:</strong> {pass_time_str} (<strong>{latency_str}</strong>)
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div class="live-banner">
+                <strong>STATUS CLEAR — NO CONFIRMED ACTIVE FIRES ({region_preset}):</strong>
+                Zero confirmed high-sensitivity (≥{min_live_conf}%) wildfire anomalies detected
+                in the last {live_days*24} hours. &nbsp;|&nbsp;
+                <strong>Latest Satellite Overpass:</strong> {pass_time_str} (<strong>{latency_str}</strong>)
+            </div>
+            """, unsafe_allow_html=True)
+
+        # Live KPI Cards
+        lk1, lk2, lk3, lk4 = st.columns(4)
+        lk1.metric("Latest Orbital Overpass", latency_str, latest_pass_trt.strftime("%H:%M TRT") if len(live_raw) > 0 else None)
+        lk2.metric("Confirmed Active Fire Cells", f"{confirmed_cnt:,}", f"Sensitivity ≥ {min_live_conf}%")
+        lk3.metric("Total High-Conf Hotspots", f"{len(live_grid):,}", f"Raw NRT: {len(live_aoi):,}")
+        live_frp = live_grid["total_frp"].sum() if len(live_grid) > 0 else 0.0
+        lk4.metric("Live Radiative Power", f"{live_frp:,.1f} MW")
+
+        # Live Map vs. Historical Seasonal Comparison
+        col_lmap, col_lcomp = st.columns([1.3, 1])
+
+        with col_lmap:
+            if len(live_grid) > 0:
+                live_grid["Last Pass (TRT)"] = live_grid["last_seen"].dt.tz_convert(trt_tz).dt.strftime("%Y-%m-%d %H:%M")
+                fig_lmap = px.scatter_map(
+                    live_grid,
+                    lat="latitude",
+                    lon="longitude",
+                    size="total_frp",
+                    color="Verification_Status",
+                    color_discrete_map={
+                        "Confirmed Active Fire (High Confidence / Multi-Pass)": "#E34C26",
+                        "Probable Thermal Hotspot (Single-Pass High Conf)": "#D29922"
+                    },
+                    hover_data=["Last Pass (TRT)", "total_frp", "max_conf", "unique_sensors"],
+                    zoom=5.0,
+                    height=450,
+                    map_style="carto-darkmatter"
+                )
+                fig_lmap.update_layout(
+                    title="Live Verified Thermal Map (MODIS + VIIRS NRT)",
+                    margin=dict(l=0, r=0, t=40, b=0),
+                    paper_bgcolor="rgba(0,0,0,0)"
+                )
+                st.plotly_chart(fig_lmap, use_container_width=True)
+            else:
+                # Empty dark map centered on Türkiye when no active fires exist
+                empty_df = pd.DataFrame({"lat": [39.0], "lon": [35.2]})
+                fig_empty = px.scatter_map(
+                    empty_df, lat="lat", lon="lon", zoom=4.8, height=450, map_style="carto-darkmatter"
+                )
+                fig_empty.update_traces(marker=dict(size=0, opacity=0))
+                fig_empty.update_layout(
+                    title="Live Verified Thermal Map — Zero Active Hotspots",
+                    margin=dict(l=0, r=0, t=40, b=0),
+                    paper_bgcolor="rgba(0,0,0,0)"
+                )
+                st.plotly_chart(fig_empty, use_container_width=True)
+
+        with col_lcomp:
+            # Compare Live Daily Activity vs. Historical Archive Daily Mean for Current Month
+            cur_month = now_trt.month
+            hist_m = f_harm[f_harm["month"] == cur_month]
+            if len(hist_m) > 0:
+                hist_daily_avg = hist_m.groupby("acq_date")["fire_activity_index"].count().mean()
+                hist_frp_avg = hist_m.groupby("acq_date")["total_frp"].sum().mean()
+            else:
+                hist_daily_avg, hist_frp_avg = 0.0, 0.0
+
+            live_daily_rate = len(live_grid) / float(live_days)
+            live_daily_frp = live_frp / float(live_days)
+
+            fig_lcomp = go.Figure()
+            fig_lcomp.add_trace(go.Bar(
+                x=[f"Historical {month_names[cur_month]} Daily Avg", "Live 24h Equivalent"],
+                y=[hist_daily_avg, live_daily_rate],
+                marker_color=["#388BFD", "#E34C26"],
+                text=[f"{hist_daily_avg:.1f}", f"{live_daily_rate:.1f}"],
+                textposition="auto",
+                name="Daily Event Rate"
+            ))
+            fig_lcomp.update_layout(
+                title=f"Live Activity vs. {full_month_names[cur_month]} Climatological Normal",
+                yaxis_title="Events / 24h",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="#161B22",
+                height=450,
+                margin=dict(t=40)
+            )
+            st.plotly_chart(fig_lcomp, use_container_width=True)
+
+        if len(live_grid) > 0:
+            st.markdown("##### Verified Live Hotspot Table")
+            st.dataframe(
+                live_grid[["latitude", "longitude", "Verification_Status", "total_frp", "max_conf", "unique_sensors", "Last Pass (TRT)"]],
+                use_container_width=True
+            )
+
+# === TAB 1: SEASONAL CALENDAR ===
 with tab1:
     st.markdown("##### Monthly Fire Regime Matrix & Observation-Gap Transparency")
     if len(f_harm) > 0:
@@ -402,6 +667,7 @@ with tab1:
     </div>
     """, unsafe_allow_html=True)
 
+# === TAB 2: MONTHLY MONITORING ===
 with tab2:
     st.markdown("##### Dedicated Month-by-Month Surveillance & Daily Progression")
     if len(f_harm) > 0:
@@ -553,6 +819,7 @@ with tab2:
             mime="text/csv"
         )
 
+# === TAB 3: CLIMATOLOGICAL ANOMALY ===
 with tab3:
     st.markdown("##### Climatological Seasonal Baseline, Anomalies (+2σ) & Missing Days")
     if len(f_harm) > 0:
@@ -625,6 +892,7 @@ with tab3:
         )
         st.plotly_chart(fig_anom, use_container_width=True)
 
+# === TAB 4: SPATIAL DISTRIBUTION ===
 with tab4:
     st.markdown("##### Geospatial Distribution of High-Intensity Events (Top 3,000 by FAI)")
     sample_map = f_harm.sort_values("fire_activity_index", ascending=False).head(3000)
@@ -648,6 +916,7 @@ with tab4:
         "within 0.01° grid cells and do not directly represent total burned acreage."
     )
 
+# === TAB 5: CALIBRATION VALIDATION ===
 with tab5:
     st.markdown("##### Statistical Calibration Consistency & Resolution Bias Correction")
     m_monthly = f_modis.groupby("month").size().reset_index(name="MODIS (1 km)")
@@ -698,6 +967,7 @@ with tab5:
     )
     st.plotly_chart(fig_comp, use_container_width=True)
 
+# === TAB 6: THERMODYNAMIC MODELING ===
 with tab6:
     st.markdown("##### Bounded Radiative Power & Combustion Kinetics")
     st.caption(
@@ -777,6 +1047,7 @@ with tab6:
     </div>
     """, unsafe_allow_html=True)
 
+# === TAB 7: METHODOLOGY & CAVEATS ===
 with tab7:
     st.markdown("""
     <div class="caveat-box">
