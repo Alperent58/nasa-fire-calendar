@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import glob
 import os
+import calendar
 
 st.set_page_config(
     page_title="MODIS-VIIRS Fire Regime & Thermal Analysis",
@@ -89,11 +90,11 @@ st.markdown("""
     }
     div[data-testid="stMetricValue"] {
         color: #F0F6FC !important;
-        font-size: 23px !important;
+        font-size: 22px !important;
         font-weight: 600 !important;
     }
     .stTabs [data-baseweb="tab-list"] {
-        gap: 20px;
+        gap: 18px;
         border-bottom: 1px solid #262C36;
     }
     .stTabs [data-baseweb="tab"] {
@@ -114,7 +115,7 @@ st.markdown("""
 <div class="header-container">
     <div class="header-meta">NASA FIRMS ARCHIVE • MULTI-SENSOR SPATIOTEMPORAL HARMONIZATION</div>
     <div class="header-title">MODIS & VIIRS Fire Activity Calendar and Radiative Energy Analysis</div>
-    <div class="header-desc">Cross-sensor spatial grid alignment (0.01°), confidence calibration, observation-gap transparency, and bounded thermodynamic modeling.</div>
+    <div class="header-desc">Cross-sensor spatial grid alignment (0.01°), confidence calibration, month-by-month surveillance, and bounded thermodynamic modeling.</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -158,15 +159,16 @@ def load_and_harmonize():
         df["acq_date"] = pd.to_datetime(df["acq_date"])
         df["year"] = df["acq_date"].dt.year
         df["month"] = df["acq_date"].dt.month
+        df["day"] = df["acq_date"].dt.day
         df["grid_lat"] = df["latitude"].round(2)
         df["grid_lon"] = df["longitude"].round(2)
 
     raw_combined = pd.concat([
-        modis[["latitude", "longitude", "acq_date", "year", "month", "frp", "norm_conf", "sensor", "grid_lat", "grid_lon"]],
-        viirs[["latitude", "longitude", "acq_date", "year", "month", "frp", "norm_conf", "sensor", "grid_lat", "grid_lon"]]
+        modis[["latitude", "longitude", "acq_date", "year", "month", "day", "frp", "norm_conf", "sensor", "grid_lat", "grid_lon"]],
+        viirs[["latitude", "longitude", "acq_date", "year", "month", "day", "frp", "norm_conf", "sensor", "grid_lat", "grid_lon"]]
     ], ignore_index=True)
 
-    harmonized = raw_combined.groupby(["acq_date", "year", "month", "grid_lat", "grid_lon"]).agg(
+    harmonized = raw_combined.groupby(["acq_date", "year", "month", "day", "grid_lat", "grid_lon"]).agg(
         latitude=("latitude", "mean"),
         longitude=("longitude", "mean"),
         total_frp=("frp", "mean"),
@@ -186,6 +188,9 @@ modis_df, viirs_df, harm_df, debug_files = load_and_harmonize()
 if harm_df is None:
     st.error(f"Dataset files not found in directory: {debug_files}")
     st.stop()
+
+month_names = {1:"Jan", 2:"Feb", 3:"Mar", 4:"Apr", 5:"May", 6:"Jun", 7:"Jul", 8:"Aug", 9:"Sep", 10:"Oct", 11:"Nov", 12:"Dec"}
+full_month_names = {1:"January", 2:"February", 3:"March", 4:"April", 5:"May", 6:"June", 7:"July", 8:"August", 9:"September", 10:"October", 11:"November", 12:"December"}
 
 # --- SIDEBAR PARAMETERS & GRANULAR AOI SELECTION ---
 with st.sidebar:
@@ -223,7 +228,7 @@ f_viirs = viirs_df[(viirs_df["year"].isin(selected_years)) & (viirs_df["latitude
 with st.sidebar:
     csv_export = f_harm.head(10000).to_csv(index=False).encode("utf-8")
     st.download_button(
-        label="Download Harmonized CSV",
+        label="Download Full Harmonized CSV",
         data=csv_export,
         file_name="harmonized_fire_events.csv",
         mime="text/csv"
@@ -231,8 +236,6 @@ with st.sidebar:
     st.markdown("---")
     st.caption("Data Source: NASA FIRMS (MODIS Collection 6.1 & VIIRS S-NPP C2)")
     st.caption("Radiative Uncertainty: ±15% sensor FRP, ±13.6% Wooster factor")
-
-month_names = {1:"Jan", 2:"Feb", 3:"Mar", 4:"Apr", 5:"May", 6:"Jun", 7:"Jul", 8:"Aug", 9:"Sep", 10:"Oct", 11:"Nov", 12:"Dec"}
 
 # --- OPERATIONAL DECISION BRIEF & SEASONAL PRIORITIZATION ---
 if len(f_harm) > 0:
@@ -276,8 +279,9 @@ col4.metric("Mean Radiative Power", f"{f_harm['total_frp'].mean():.1f} ± {f_har
 st.markdown("<br>", unsafe_allow_html=True)
 
 # --- NAVIGATION TABS ---
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "Seasonal Calendar & Gaps",
+    "Monthly Monitoring",
     "Climatological Anomaly",
     "Spatial Distribution",
     "Calibration Validation",
@@ -325,6 +329,123 @@ with tab1:
     """, unsafe_allow_html=True)
 
 with tab2:
+    st.markdown("##### Dedicated Month-by-Month Surveillance & Daily Progression")
+    default_idx = int(f_harm.groupby("month")["fire_activity_index"].count().idxmax() - 1) if len(f_harm) > 0 else 7
+    sel_month = st.selectbox(
+        "Select Target Month for Dedicated Surveillance:",
+        options=list(range(1, 13)),
+        index=default_idx,
+        format_func=lambda m: f"{full_month_names[m]} (Month {m:02d})"
+    )
+
+    m_harm = f_harm[f_harm["month"] == sel_month].copy()
+    m_modis = f_modis[f_modis["month"] == sel_month]
+    m_viirs = f_viirs[f_viirs["month"] == sel_month]
+
+    # Monthly dedicated KPIs
+    mc1, mc2, mc3, mc4 = st.columns(4)
+    m_events = len(m_harm)
+    m_frp_sum = m_harm["total_frp"].sum() if m_events > 0 else 0.0
+    m_bio_tons = (m_harm["biomass_rate_kg_s"].sum() * 3600) / 1000.0 if m_events > 0 else 0.0
+    if m_events > 0:
+        peak_day_row = m_harm.groupby("acq_date")["fire_activity_index"].count().idxmax()
+        peak_day_str = peak_day_row.strftime("%Y-%m-%d")
+        peak_day_cnt = m_harm.groupby("acq_date")["fire_activity_index"].count().max()
+    else:
+        peak_day_str, peak_day_cnt = "N/A", 0
+
+    mc1.metric(f"{month_names[sel_month]} Harmonized Events", f"{m_events:,}", f"Raw: {len(m_modis)+len(m_viirs):,}")
+    mc2.metric("Peak Activity Date", peak_day_str, f"{peak_day_cnt:,} events" if m_events > 0 else None)
+    mc3.metric(f"{month_names[sel_month]} Cumulative FRP", f"{m_frp_sum:,.0f} ± {m_frp_sum*0.15:,.0f} MW")
+    mc4.metric(f"{month_names[sel_month]} Est. Biomass", f"{m_bio_tons:,.0f} ± {m_bio_tons*0.202:,.0f} t")
+
+    # Day-of-Month Matrix (Year x Day 1..31)
+    days_in_m = calendar.monthrange(2024, sel_month)[1]
+    day_grid = pd.MultiIndex.from_product([selected_years, range(1, days_in_m + 1)], names=["year", "day"]).to_frame(index=False)
+    daily_m_counts = m_harm.groupby(["year", "day"]).agg(events=("fire_activity_index", "count")).reset_index()
+    day_matrix_df = day_grid.merge(daily_m_counts, on=["year", "day"], how="left")
+    pivot_day = day_matrix_df.pivot(index="year", columns="day", values="events")
+
+    fig_day_cal = px.imshow(
+        pivot_day,
+        labels=dict(x=f"Day of {full_month_names[sel_month]}", y="Year", color="Events"),
+        color_continuous_scale="YlOrRd",
+        text_auto=True,
+        aspect="auto"
+    )
+    fig_day_cal.update_layout(
+        title=f"Daily Fire Regime Matrix — {full_month_names[sel_month]} (Blank = No Detection / Cloud-Masked)",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="#21262D",
+        margin=dict(t=40)
+    )
+    st.plotly_chart(fig_day_cal, use_container_width=True)
+
+    # Inter-Annual Comparison & Monthly Map side-by-side
+    c_left, c_right = st.columns([1, 1])
+    with c_left:
+        yr_comp = m_harm.groupby("year").agg(
+            events=("fire_activity_index", "count"),
+            mean_frp=("total_frp", "mean")
+        ).reindex(selected_years, fill_value=0).reset_index()
+
+        fig_yr_m = go.Figure()
+        fig_yr_m.add_trace(go.Bar(
+            x=yr_comp["year"].astype(str),
+            y=yr_comp["events"],
+            marker_color="#E34C26",
+            name="Harmonized Events"
+        ))
+        if len(yr_comp) > 1 and yr_comp["events"].std() > 0:
+            m_thresh = yr_comp["events"].mean() + 2 * yr_comp["events"].std()
+            fig_yr_m.add_hline(y=m_thresh, line_dash="dash", line_color="#D29922", annotation_text="Month +2σ Threshold")
+        fig_yr_m.update_layout(
+            title=f"Inter-Annual Comparison ({full_month_names[sel_month]})",
+            xaxis_title="Year",
+            yaxis_title="Harmonized Events",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="#161B22",
+            height=400,
+            margin=dict(t=40)
+        )
+        st.plotly_chart(fig_yr_m, use_container_width=True)
+
+    with c_right:
+        if m_events > 0:
+            m_sample = m_harm.sort_values("fire_activity_index", ascending=False).head(1500)
+            fig_m_map = px.scatter_map(
+                m_sample,
+                lat="latitude",
+                lon="longitude",
+                size="total_frp",
+                color="sensor_count",
+                color_continuous_scale=["#D29922", "#E34C26"],
+                labels={"sensor_count": "Sensors", "total_frp": "FRP (MW)"},
+                hover_data=["acq_date", "total_frp", "max_conf"],
+                zoom=4.8,
+                height=400,
+                map_style="carto-darkmatter"
+            )
+            fig_m_map.update_layout(
+                title=f"Top Spatial Hotspots ({full_month_names[sel_month]})",
+                margin=dict(l=0, r=0, t=40, b=0),
+                paper_bgcolor="rgba(0,0,0,0)"
+            )
+            st.plotly_chart(fig_m_map, use_container_width=True)
+        else:
+            st.info(f"No valid detections recorded for {full_month_names[sel_month]} in the selected AOI and years.")
+
+    # Monthly CSV export button
+    if m_events > 0:
+        m_csv = m_harm.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            label=f"Download {full_month_names[sel_month]} Harmonized Dataset (CSV)",
+            data=m_csv,
+            file_name=f"harmonized_fire_{full_month_names[sel_month].lower()}.csv",
+            mime="text/csv"
+        )
+
+with tab3:
     st.markdown("##### Climatological Seasonal Baseline, Anomalies (+2σ) & Missing-Observation Days")
     if len(f_harm) > 0:
         min_d, max_d = f_harm["acq_date"].min(), f_harm["acq_date"].max()
@@ -334,7 +455,6 @@ with tab2:
         daily_obs = f_harm.groupby("acq_date").agg(event_count=("fire_activity_index", "count")).reset_index()
         daily = full_calendar.merge(daily_obs, on="acq_date", how="left")
 
-        # Climatological baseline computed strictly from valid observation days
         monthly_clim = daily.dropna(subset=["event_count"]).groupby("month")["event_count"].agg(clim_mean="mean", clim_std="std").reset_index()
         monthly_clim["clim_std"] = monthly_clim["clim_std"].fillna(0)
         daily = daily.merge(monthly_clim, on="month", how="left")
@@ -381,7 +501,7 @@ with tab2:
         )
         st.plotly_chart(fig_anom, use_container_width=True)
 
-with tab3:
+with tab4:
     st.markdown("##### Geospatial Distribution of High-Intensity Events (Top 3,000 by FAI)")
     sample_map = f_harm.sort_values("fire_activity_index", ascending=False).head(3000)
     fig_map = px.scatter_map(
@@ -401,7 +521,7 @@ with tab3:
     st.plotly_chart(fig_map, use_container_width=True)
     st.caption("Hotspot ≠ Burned Area: Plotted coordinates indicate active radiative thermal anomalies within 0.01° grid cells and do not directly represent total burned acreage.")
 
-with tab4:
+with tab5:
     st.markdown("##### Statistical Calibration Consistency & Resolution Bias Correction")
     m_monthly = f_modis.groupby("month").size().reset_index(name="MODIS (1 km)")
     v_monthly = f_viirs.groupby("month").size().reset_index(name="VIIRS (375 m)")
@@ -430,7 +550,7 @@ with tab4:
     fig_comp.update_layout(barmode="group", xaxis_title="Month", yaxis_title="Event Count", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#161B22", margin=dict(t=20))
     st.plotly_chart(fig_comp, use_container_width=True)
 
-with tab5:
+with tab6:
     st.markdown("##### Bounded Thermodynamic Energy & Biomass Combustion Kinetics")
     st.caption("Derived from Fire Radiative Power (FRP ±15%) using Wooster et al. (2005) combustion factor (0.368 ± 0.05 kg/MJ) over a 0.01° (~1.21 km²) grid cell.")
     m1, m2, m3 = st.columns(3)
@@ -465,7 +585,7 @@ with tab5:
     )
     st.plotly_chart(fig_eng, use_container_width=True)
 
-with tab6:
+with tab7:
     st.markdown("""
     <div class="caveat-box">
         <strong>Limitations & Ground-Truth Caveat (Hotspot ≠ Burned Area):</strong><br>
