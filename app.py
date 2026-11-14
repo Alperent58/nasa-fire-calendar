@@ -63,7 +63,18 @@ st.markdown("""
     .exec-text {
         font-size: 14px;
         color: #C9D1D9;
-        line-height: 1.5;
+        line-height: 1.55;
+    }
+    .caveat-box {
+        background-color: rgba(210, 153, 34, 0.08);
+        border: 1px solid rgba(210, 153, 34, 0.4);
+        border-left: 4px solid #D29922;
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin-top: 12px;
+        margin-bottom: 16px;
+        font-size: 13px;
+        color: #E6EDF3;
     }
     div[data-testid="stMetric"] {
         background-color: #161B22;
@@ -103,7 +114,7 @@ st.markdown("""
 <div class="header-container">
     <div class="header-meta">NASA FIRMS ARCHIVE • MULTI-SENSOR SPATIOTEMPORAL HARMONIZATION</div>
     <div class="header-title">MODIS & VIIRS Fire Activity Calendar and Radiative Energy Analysis</div>
-    <div class="header-desc">Cross-sensor spatial grid alignment (0.01°), confidence calibration, climatological anomaly detection, and bounded thermodynamic modeling.</div>
+    <div class="header-desc">Cross-sensor spatial grid alignment (0.01°), confidence calibration, observation-gap transparency, and bounded thermodynamic modeling.</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -147,16 +158,15 @@ def load_and_harmonize():
         df["acq_date"] = pd.to_datetime(df["acq_date"])
         df["year"] = df["acq_date"].dt.year
         df["month"] = df["acq_date"].dt.month
-        df["day_of_year"] = df["acq_date"].dt.dayofyear
         df["grid_lat"] = df["latitude"].round(2)
         df["grid_lon"] = df["longitude"].round(2)
 
     raw_combined = pd.concat([
-        modis[["latitude", "longitude", "acq_date", "year", "month", "day_of_year", "frp", "norm_conf", "sensor", "grid_lat", "grid_lon"]],
-        viirs[["latitude", "longitude", "acq_date", "year", "month", "day_of_year", "frp", "norm_conf", "sensor", "grid_lat", "grid_lon"]]
+        modis[["latitude", "longitude", "acq_date", "year", "month", "frp", "norm_conf", "sensor", "grid_lat", "grid_lon"]],
+        viirs[["latitude", "longitude", "acq_date", "year", "month", "frp", "norm_conf", "sensor", "grid_lat", "grid_lon"]]
     ], ignore_index=True)
 
-    harmonized = raw_combined.groupby(["acq_date", "year", "month", "day_of_year", "grid_lat", "grid_lon"]).agg(
+    harmonized = raw_combined.groupby(["acq_date", "year", "month", "grid_lat", "grid_lon"]).agg(
         latitude=("latitude", "mean"),
         longitude=("longitude", "mean"),
         total_frp=("frp", "mean"),
@@ -177,31 +187,34 @@ if harm_df is None:
     st.error(f"Dataset files not found in directory: {debug_files}")
     st.stop()
 
-# --- SIDEBAR PARAMETERS ---
+# --- SIDEBAR PARAMETERS & GRANULAR AOI SELECTION ---
 with st.sidebar:
     st.markdown("#### Query Parameters")
     years = sorted(harm_df["year"].unique())
     selected_years = st.multiselect("Observation Period (Years)", years, default=years)
 
-    region_preset = st.selectbox("Area of Interest (AOI)", [
-        "All Türkiye (35.5°N–42.5°N)",
-        "Mediterranean & Aegean Coast",
-        "Southeastern Anatolia",
-        "Black Sea Region"
-    ])
+    aoi_presets = {
+        "All Türkiye (35.5°N–42.5°N)": ((35.5, 42.5), (25.5, 45.0)),
+        "Mediterranean Coast (Antalya & Mersin)": ((36.0, 37.5), (29.2, 35.2)),
+        "Aegean Coast (Muğla, İzmir & Manisa)": ((36.6, 39.2), (26.2, 29.5)),
+        "Eastern Mediterranean (Adana & Hatay)": ((35.8, 38.0), (35.0, 37.2)),
+        "Southeastern Anatolia (Diyarbakır & Mardin)": ((36.7, 38.4), (39.5, 42.2)),
+        "Black Sea Region (Coastal Belt)": ((40.5, 42.2), (31.0, 41.5)),
+        "Custom Bounding Box (Lat/Lon)": None
+    }
+
+    region_preset = st.selectbox("Area of Interest (AOI)", list(aoi_presets.keys()))
+
+    if region_preset == "Custom Bounding Box (Lat/Lon)":
+        lat_range = st.slider("Latitude Range (°N)", 35.5, 42.5, (36.0, 39.0), step=0.1)
+        lon_range = st.slider("Longitude Range (°E)", 25.5, 45.0, (27.0, 36.0), step=0.1)
+    else:
+        lat_range, lon_range = aoi_presets[region_preset]
+        st.caption(f"Bounds: {lat_range[0]}°N–{lat_range[1]}°N, {lon_range[0]}°E–{lon_range[1]}°E")
 
     st.markdown("---")
     st.markdown("#### Data Export")
     st.caption("Export harmonized grid records (CSV) for external GIS or CFD boundary condition setup.")
-
-if region_preset == "Mediterranean & Aegean Coast":
-    lat_range, lon_range = (36.0, 39.5), (26.0, 36.5)
-elif region_preset == "Southeastern Anatolia":
-    lat_range, lon_range = (36.5, 38.5), (37.0, 42.5)
-elif region_preset == "Black Sea Region":
-    lat_range, lon_range = (40.5, 42.2), (31.0, 41.5)
-else:
-    lat_range, lon_range = (35.5, 42.5), (25.5, 45.0)
 
 f_harm = harm_df[(harm_df["year"].isin(selected_years)) & (harm_df["latitude"].between(lat_range[0], lat_range[1])) & (harm_df["longitude"].between(lon_range[0], lon_range[1]))]
 f_modis = modis_df[(modis_df["year"].isin(selected_years)) & (modis_df["latitude"].between(lat_range[0], lat_range[1])) & (modis_df["longitude"].between(lon_range[0], lon_range[1]))]
@@ -221,22 +234,30 @@ with st.sidebar:
 
 month_names = {1:"Jan", 2:"Feb", 3:"Mar", 4:"Apr", 5:"May", 6:"Jun", 7:"Jul", 8:"Aug", 9:"Sep", 10:"Oct", 11:"Nov", 12:"Dec"}
 
-# --- EXECUTIVE DECISION BRIEF (NON-TECHNICAL SUMMARY) ---
+# --- OPERATIONAL DECISION BRIEF & SEASONAL PRIORITIZATION ---
 if len(f_harm) > 0:
-    peak_month_num = f_harm.groupby("month")["fire_activity_index"].count().idxmax()
-    peak_month_name = month_names.get(peak_month_num, str(peak_month_num))
-    regime_note = (
-        "High-intensity forest canopy & coastal wildfire regime requiring aerial suppression readiness."
-        if peak_month_num in [6, 7, 8, 9]
-        else "Post-harvest agricultural residue & controlled burn regime requiring ground patrol monitoring."
-    )
+    monthly_counts = f_harm.groupby("month")["fire_activity_index"].count().sort_values(ascending=False)
+    top_months = [month_names.get(m, str(m)) for m in monthly_counts.head(2).index]
+    peak_window = " – ".join(top_months)
+    primary_month = monthly_counts.index[0]
+
+    if primary_month in [6, 7, 8, 9]:
+        regime_label = "High-Intensity Canopy & Wildland Fire Regime"
+        action_rec = "Prioritize pre-positioning of aerial suppression assets, thermal watchtowers, and rapid initial-attack crews 3 weeks prior to peak window."
+    elif primary_month in [10, 11]:
+        regime_label = "Post-Harvest Agricultural Stubble & Residue Burning Regime"
+        action_rec = "Deploy ground-based agricultural inspection patrols and enforce controlled-burn permits to prevent wildland-urban interface escape."
+    else:
+        regime_label = "Low-Intensity / Transitional Thermal Regime"
+        action_rec = "Maintain baseline satellite monitoring and verify isolated thermal detections against industrial or cloud-edge false positives."
+
     st.markdown(f"""
     <div class="exec-box">
-        <div class="exec-title">Operational Decision Brief • {region_preset}</div>
+        <div class="exec-title">Operational Decision Brief & Seasonal Prioritization • {region_preset}</div>
         <div class="exec-text">
-            <strong>Critical Intervention Window:</strong> Peak thermal activity occurs in <strong>{peak_month_name}</strong>. 
-            <strong>Dominant Regime:</strong> {regime_note} 
-            <strong>Verification Confidence:</strong> {len(f_harm[f_harm['sensor_count'] == 2]):,} events independently confirmed by both orbital sensors.
+            <strong>Highest-Risk Months:</strong> {peak_window} &nbsp;|&nbsp; 
+            <strong>Dominant Fire Regime:</strong> {regime_label}<br>
+            <strong>Preparedness Recommendation:</strong> {action_rec}
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -261,12 +282,11 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "Spatial Distribution",
     "Calibration Validation",
     "Thermodynamic Modeling",
-    "Methodology & Uncertainty"
+    "Methodology & Caveats"
 ])
 
 with tab1:
-    st.markdown("##### Monthly Fire Regime Matrix & Observation Coverage")
-    # Check missing observation days across full calendar span
+    st.markdown("##### Monthly Fire Regime Matrix & Observation-Gap Transparency")
     if len(f_harm) > 0:
         min_d, max_d = f_harm["acq_date"].min(), f_harm["acq_date"].max()
         full_dates = pd.date_range(min_d, max_d, freq="D")
@@ -275,12 +295,11 @@ with tab1:
         coverage_pct = ((len(full_dates) - missing_days) / len(full_dates)) * 100
 
         c_gap1, c_gap2, c_gap3 = st.columns(3)
-        c_gap1.metric("Total Calendar Days Evaluated", f"{len(full_dates):,} days")
-        c_gap2.metric("Days Without Active Detections / Cloud-Masked", f"{missing_days:,} days")
-        c_gap3.metric("Temporal Detection Coverage", f"{coverage_pct:.1f}%")
+        c_gap1.metric("Total Calendar Span", f"{len(full_dates):,} days")
+        c_gap2.metric("No-Detection / Cloud-Masked Days", f"{missing_days:,} days")
+        c_gap3.metric("Active Observation Coverage", f"{coverage_pct:.1f}%")
 
     cal_data = f_harm.groupby(["year", "month"]).agg(fire_count=("fire_activity_index", "count")).reset_index()
-    # Build complete year x month grid so missing months explicitly show as NaN/0
     all_grid = pd.MultiIndex.from_product([selected_years, range(1, 13)], names=["year", "month"]).to_frame(index=False)
     cal_full = all_grid.merge(cal_data, on=["year", "month"], how="left")
     pivot_cal = cal_full.pivot(index="year", columns="month", values="fire_count")
@@ -288,55 +307,79 @@ with tab1:
 
     fig_cal = px.imshow(
         pivot_cal,
-        labels=dict(x="Month", y="Year", color="Events (Blank = No Obs)"),
+        labels=dict(x="Month", y="Year", color="Harmonized Events"),
         color_continuous_scale="YlOrRd",
         text_auto=True,
         aspect="auto"
     )
-    fig_cal.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#161B22", margin=dict(t=20))
+    fig_cal.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="#21262D",
+        margin=dict(t=20)
+    )
     st.plotly_chart(fig_cal, use_container_width=True)
-    st.caption("Note: Blank cells indicate months with zero valid orbital detections (due to persistent cloud cover, winter snowpack, or absence of thermal anomalies).")
+    st.markdown("""
+    <div class="caveat-box">
+        <strong>Observation-Gap Transparency ("Empty Cell" Distinction):</strong> Dark gray blank cells represent periods with <strong>zero valid orbital detections</strong>—which may result from heavy cloud cover, dense smoke obscuration, or orbital swath gaps rather than confirmed absence of fire.
+    </div>
+    """, unsafe_allow_html=True)
 
 with tab2:
-    st.markdown("##### Climatological Seasonal Baseline vs. Daily Anomalies (+2σ)")
-    daily = f_harm.groupby(["acq_date", "month"]).agg(event_count=("fire_activity_index", "count")).reset_index()
-    # Calculate monthly climatological baseline (mean & std per calendar month)
-    monthly_clim = daily.groupby("month")["event_count"].agg(clim_mean="mean", clim_std="std").reset_index()
-    monthly_clim["clim_std"] = monthly_clim["clim_std"].fillna(0)
-    daily = daily.merge(monthly_clim, on="month", how="left")
-    daily["upper_2sigma"] = daily["clim_mean"] + 2 * daily["clim_std"]
-    daily["Classification"] = np.where(daily["event_count"] > daily["upper_2sigma"], "Anomaly (> Seasonal +2σ)", "Within Seasonal Normal")
-    daily = daily.sort_values("acq_date")
+    st.markdown("##### Climatological Seasonal Baseline, Anomalies (+2σ) & Missing-Observation Days")
+    if len(f_harm) > 0:
+        min_d, max_d = f_harm["acq_date"].min(), f_harm["acq_date"].max()
+        full_calendar = pd.DataFrame({"acq_date": pd.date_range(min_d, max_d, freq="D")})
+        full_calendar["month"] = full_calendar["acq_date"].dt.month
 
-    fig_anom = go.Figure()
-    fig_anom.add_trace(go.Scatter(
-        x=daily["acq_date"], y=daily["clim_mean"],
-        mode="lines", name="Seasonal Climatological Normal (μ)",
-        line=dict(color="#58A6FF", width=2)
-    ))
-    fig_anom.add_trace(go.Scatter(
-        x=daily["acq_date"], y=daily["upper_2sigma"],
-        mode="lines", name="Seasonal +2σ Threshold",
-        line=dict(color="#D29922", width=1.5, dash="dash")
-    ))
-    normal_pts = daily[daily["Classification"] == "Within Seasonal Normal"]
-    anom_pts = daily[daily["Classification"] == "Anomaly (> Seasonal +2σ)"]
+        daily_obs = f_harm.groupby("acq_date").agg(event_count=("fire_activity_index", "count")).reset_index()
+        daily = full_calendar.merge(daily_obs, on="acq_date", how="left")
 
-    fig_anom.add_trace(go.Scatter(
-        x=normal_pts["acq_date"], y=normal_pts["event_count"],
-        mode="markers", name="Normal Activity",
-        marker=dict(color="#8B949E", size=5, opacity=0.6)
-    ))
-    fig_anom.add_trace(go.Scatter(
-        x=anom_pts["acq_date"], y=anom_pts["event_count"],
-        mode="markers", name="Extreme Anomaly (> +2σ)",
-        marker=dict(color="#E34C26", size=8)
-    ))
-    fig_anom.update_layout(
-        xaxis_title="Date", yaxis_title="Daily Harmonized Fire Events",
-        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#161B22", margin=dict(t=20)
-    )
-    st.plotly_chart(fig_anom, use_container_width=True)
+        # Climatological baseline computed strictly from valid observation days
+        monthly_clim = daily.dropna(subset=["event_count"]).groupby("month")["event_count"].agg(clim_mean="mean", clim_std="std").reset_index()
+        monthly_clim["clim_std"] = monthly_clim["clim_std"].fillna(0)
+        daily = daily.merge(monthly_clim, on="month", how="left")
+        daily["upper_2sigma"] = daily["clim_mean"] + 2 * daily["clim_std"]
+
+        no_obs_days = daily[daily["event_count"].isna()].copy()
+        valid_days = daily.dropna(subset=["event_count"]).copy()
+        valid_days["Classification"] = np.where(valid_days["event_count"] > valid_days["upper_2sigma"], "Extreme Anomaly (> Seasonal +2σ)", "Within Seasonal Normal")
+
+        fig_anom = go.Figure()
+        fig_anom.add_trace(go.Scatter(
+            x=daily["acq_date"], y=daily["clim_mean"],
+            mode="lines", name="Seasonal Climatological Normal (μ)",
+            line=dict(color="#58A6FF", width=2)
+        ))
+        fig_anom.add_trace(go.Scatter(
+            x=daily["acq_date"], y=daily["upper_2sigma"],
+            mode="lines", name="Seasonal +2σ Threshold",
+            line=dict(color="#D29922", width=1.5, dash="dash")
+        ))
+
+        normal_pts = valid_days[valid_days["Classification"] == "Within Seasonal Normal"]
+        anom_pts = valid_days[valid_days["Classification"] == "Extreme Anomaly (> Seasonal +2σ)"]
+
+        fig_anom.add_trace(go.Scatter(
+            x=normal_pts["acq_date"], y=normal_pts["event_count"],
+            mode="markers", name="Normal Activity",
+            marker=dict(color="#8B949E", size=5, opacity=0.65)
+        ))
+        fig_anom.add_trace(go.Scatter(
+            x=anom_pts["acq_date"], y=anom_pts["event_count"],
+            mode="markers", name="Extreme Anomaly (> +2σ)",
+            marker=dict(color="#E34C26", size=8)
+        ))
+        fig_anom.add_trace(go.Scatter(
+            x=no_obs_days["acq_date"], y=[0] * len(no_obs_days),
+            mode="markers", name="No Observation / Cloud-Masked Day",
+            marker=dict(color="#484F58", size=5, symbol="x")
+        ))
+
+        fig_anom.update_layout(
+            xaxis_title="Date", yaxis_title="Daily Harmonized Fire Events",
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#161B22", margin=dict(t=20)
+        )
+        st.plotly_chart(fig_anom, use_container_width=True)
 
 with tab3:
     st.markdown("##### Geospatial Distribution of High-Intensity Events (Top 3,000 by FAI)")
@@ -351,11 +394,12 @@ with tab3:
         labels={"sensor_count": "Sensor Count", "total_frp": "FRP (MW)", "max_conf": "Confidence (%)"},
         hover_data=["acq_date", "total_frp", "max_conf"],
         zoom=5,
-        height=560,
+        height=550,
         map_style="carto-darkmatter"
     )
     fig_map.update_layout(margin=dict(l=0, r=0, t=10, b=0), paper_bgcolor="rgba(0,0,0,0)")
     st.plotly_chart(fig_map, use_container_width=True)
+    st.caption("Hotspot ≠ Burned Area: Plotted coordinates indicate active radiative thermal anomalies within 0.01° grid cells and do not directly represent total burned acreage.")
 
 with tab4:
     st.markdown("##### Statistical Calibration Consistency & Resolution Bias Correction")
@@ -365,14 +409,12 @@ with tab4:
     comp = m_monthly.merge(v_monthly, on="month", how="outer").merge(h_monthly, on="month", how="outer").fillna(0)
     comp["Month"] = comp["month"].map(month_names)
 
-    # Statistical consistency metrics between MODIS and VIIRS monthly series
     if len(comp) > 1 and comp["MODIS (1 km)"].std() > 0 and comp["VIIRS (375 m)"].std() > 0:
         r_val = np.corrcoef(comp["MODIS (1 km)"], comp["VIIRS (375 m)"])[0, 1]
         r2_val = r_val ** 2
     else:
         r_val, r2_val = 0.0, 0.0
 
-    # FRP calibration consistency on dual-sensor coincident cells
     dual_cells = f_harm[f_harm["sensor_count"] == 2]
     dual_share = (len(dual_cells) / len(f_harm) * 100) if len(f_harm) > 0 else 0
 
@@ -394,7 +436,6 @@ with tab5:
     m1, m2, m3 = st.columns(3)
     total_mw = f_harm["total_frp"].sum()
     est_biomass_tons = (f_harm["biomass_rate_kg_s"].sum() * 3600) / 1000.0
-    # Combined propagated uncertainty (~20.2% RSS from 15% FRP + 13.6% Wooster coeff)
     biomass_err = est_biomass_tons * 0.202
     peak_flux = (f_harm["total_frp"].max() * 1000) / (1100 * 1100) if harm_total > 0 else 0
     flux_err = peak_flux * 0.15
@@ -425,6 +466,13 @@ with tab5:
     st.plotly_chart(fig_eng, use_container_width=True)
 
 with tab6:
+    st.markdown("""
+    <div class="caveat-box">
+        <strong>Limitations & Ground-Truth Caveat (Hotspot ≠ Burned Area):</strong><br>
+        Satellite thermal detections represent active radiative anomalies at the exact time of orbital overpass. A single harmonized grid cell does <strong>not</strong> directly measure total burned acreage (hectares) or individual ignition count, and can be obscured by thick cloud cover or dense canopy smoke. High-resolution optical imagery (e.g., Sentinel-2 dNBR) and field verification are required for post-fire perimeter mapping.
+    </div>
+    """, unsafe_allow_html=True)
+
     st.markdown("##### Harmonization Pipeline, Governing Equations & Uncertainty Budget")
     st.markdown("""
     1. **Spatial Resampling:** Native VIIRS (375 m) and MODIS (1 km) centroids are binned onto a unified $0.01^\\circ \\times 0.01^\\circ$ (~$1.11\\text{ km}$) geographic grid per UTC acquisition date to eliminate sub-pixel overcounting.
