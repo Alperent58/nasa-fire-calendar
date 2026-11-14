@@ -36,7 +36,7 @@ if is_dark:
     bg_main = "radial-gradient(circle at 18% 8%, #16213E 0%, #0B0E17 48%, #06080F 100%)"
     card_bg = "rgba(19, 25, 41, 0.85)"
     card_border = "#283552"
-    text_primary = "#000000"
+    text_primary = "#A3B1CC"
     text_secondary = "#A3B1CC"
     accent_primary = "#FF5722"
     accent_secondary = "#38BDF8"
