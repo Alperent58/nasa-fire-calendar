@@ -272,6 +272,8 @@ st.markdown(f"""
 </style>
 """, unsafe_allow_html=True)
 
+ARCHIVE_MIN_CONFIDENCE = 70
+
 
 def get_firms_api_key():
     try:
@@ -316,8 +318,9 @@ def load_and_harmonize():
         viirs["confidence"].astype(str).str.lower().map(conf_map).fillna(70)
     )
 
-    modis = modis[modis["norm_conf"] >= 30].copy()
-    viirs = viirs[viirs["norm_conf"] >= 30].copy()
+    # High-reliability threshold (>= 70%) applied across all archive calculations
+    modis = modis[modis["norm_conf"] >= ARCHIVE_MIN_CONFIDENCE].copy()
+    viirs = viirs[viirs["norm_conf"] >= ARCHIVE_MIN_CONFIDENCE].copy()
 
     modis["sensor"] = "MODIS (1 km)"
     viirs["sensor"] = "VIIRS (375 m)"
@@ -442,6 +445,7 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("### Archive Query Parameters")
+    st.caption(f"Archive Confidence Filter: ≥ {ARCHIVE_MIN_CONFIDENCE}% (Nominal & High)")
     years = sorted(harm_df["year"].unique())
     selected_years = st.multiselect(
         "Observation Period (Years)", years, default=years
@@ -493,7 +497,7 @@ with st.sidebar:
     st.download_button(
         label="Download Harmonized CSV",
         data=csv_export,
-        file_name="harmonized_fire_events.csv",
+        file_name="harmonized_fire_events_conf70.csv",
         mime="text/csv"
     )
     st.markdown("---")
@@ -536,22 +540,22 @@ if active_page == "Mission Overview":
     st.markdown("""
     <div class="hero-card">
         <div class="hero-badge">
-            🛰️ NASA FIRMS ARCHIVE & NRT STREAM • MULTI-SENSOR HARMONIZATION
+            🛰️ NASA FIRMS ARCHIVE & NRT STREAM • MULTI-SENSOR HARMONIZATION (CONF ≥ 70%)
         </div>
         <div class="hero-title">
             MODIS & VIIRS Fire Activity Calendar, Live NRT & Thermal Analysis
         </div>
         <div class="hero-desc">
-            A multi-sensor Earth observation platform aligning MODIS (1 km) and VIIRS (375 m)
-            orbital thermal anomalies onto a unified 0.01° spatial grid—combining near real-time
-            satellite overpass verification, seasonal fire regime calendars, and bounded
-            radiative combustion kinetics across Türkiye.
+            A high-confidence (≥ 70%) multi-sensor Earth observation platform aligning MODIS (1 km)
+            and VIIRS (375 m) orbital thermal anomalies onto a unified 0.01° spatial grid—combining
+            near real-time satellite overpass verification, seasonal fire regime calendars, and
+            bounded radiative combustion kinetics across Türkiye.
         </div>
     </div>
     """, unsafe_allow_html=True)
 
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Archive Raw Detections", f"{raw_total:,}")
+    col1.metric("High-Conf Raw Detections", f"{raw_total:,}", "Confidence ≥ 70%")
     col2.metric("Harmonized Fire Events", f"{harm_total:,}", f"-{reduction:.1f}% spatial overlap")
     col3.metric("Dual-Sensor Coincident", f"{dual_count:,}")
     col4.metric("Mean Radiative Power", f"{mean_frp_val:.1f} ± {mean_frp_err:.1f} MW")
@@ -810,7 +814,7 @@ elif active_page == "Live NRT Surveillance":
         fig_lcomp = go.Figure()
         fig_lcomp.add_trace(go.Bar(
             x=[
-                f"Historical {full_month_names[cur_month]} Daily Avg",
+                f"Historical {full_month_names[cur_month]} Daily Avg (≥70%)",
                 "Live 24h Equivalent"
             ],
             y=[hist_daily_avg, live_daily_rate],
@@ -821,7 +825,7 @@ elif active_page == "Live NRT Surveillance":
             name="Daily Event Rate"
         ))
         fig_lcomp.update_layout(
-            title=f"Live Activity vs. {full_month_names[cur_month]} Climatological Normal",
+            title=f"Live Activity vs. {full_month_names[cur_month]} Climatological Normal (Confidence ≥ 70%)",
             yaxis_title="Events / 24h",
             template=plotly_template,
             font=dict(size=15, color=chart_font_color),
@@ -836,7 +840,7 @@ elif active_page == "Live NRT Surveillance":
 # PAGE 2: SEASONAL CALENDAR & GAPS
 # ==============================================================================
 elif active_page == "Seasonal Calendar & Gaps":
-    st.markdown("### Monthly Fire Regime Matrix & Observation-Gap Transparency")
+    st.markdown("### Monthly Fire Regime Matrix & Observation-Gap Transparency (Conf ≥ 70%)")
     if len(f_harm) > 0:
         min_d, max_d = f_harm["acq_date"].min(), f_harm["acq_date"].max()
         full_dates = pd.date_range(min_d, max_d, freq="D")
@@ -880,7 +884,7 @@ elif active_page == "Seasonal Calendar & Gaps":
     st.markdown("""
     <div class="caveat-box">
         <strong>Observation-Gap Transparency ("Empty Cell" Distinction):</strong>
-        Blank cells represent periods with <strong>zero valid orbital detections</strong>—which
+        Blank cells represent periods with <strong>zero valid high-confidence (≥ 70%) orbital detections</strong>—which
         may result from heavy cloud cover, dense smoke obscuration, or orbital swath gaps rather
         than confirmed absence of fire.
     </div>
@@ -890,7 +894,7 @@ elif active_page == "Seasonal Calendar & Gaps":
 # PAGE 3: MONTHLY MONITORING
 # ==============================================================================
 elif active_page == "Monthly Monitoring":
-    st.markdown("### Dedicated Month-by-Month Surveillance & Daily Progression")
+    st.markdown("### Dedicated Month-by-Month Surveillance & Daily Progression (Conf ≥ 70%)")
     if len(f_harm) > 0:
         default_idx = int(
             f_harm.groupby("month")["fire_activity_index"].count().idxmax() - 1
@@ -928,7 +932,7 @@ elif active_page == "Monthly Monitoring":
     mc1.metric(
         f"{month_names[sel_month]} Harmonized Events",
         f"{m_events:,}",
-        f"Raw: {m_raw_total:,}"
+        f"Raw (≥70%): {m_raw_total:,}"
     )
     mc2.metric(
         "Peak Activity Date",
@@ -1105,7 +1109,7 @@ elif active_page == "Climatological Anomaly":
 
         fig_anom.update_layout(
             xaxis_title="Date",
-            yaxis_title="Daily Harmonized Fire Events",
+            yaxis_title="Daily Harmonized Fire Events (Conf ≥ 70%)",
             template=plotly_template,
             font=dict(size=15, color=chart_font_color),
             paper_bgcolor="rgba(0,0,0,0)",
@@ -1119,7 +1123,7 @@ elif active_page == "Climatological Anomaly":
 # PAGE 5: SPATIAL DISTRIBUTION
 # ==============================================================================
 elif active_page == "Spatial Distribution":
-    st.markdown("### Geospatial Distribution of High-Intensity Events (Top 3,000 by FAI)")
+    st.markdown("### Geospatial Distribution of High-Intensity Events (Top 3,000 by FAI, Conf ≥ 70%)")
     sample_map = f_harm.sort_values("fire_activity_index", ascending=False).head(3000)
     fig_map = px.scatter_map(
         sample_map,
@@ -1142,15 +1146,15 @@ elif active_page == "Spatial Distribution":
     )
     st.plotly_chart(fig_map, use_container_width=True)
     st.caption(
-        "Hotspot ≠ Burned Area: Plotted coordinates indicate active thermal anomalies "
-        "within 0.01° grid cells and do not directly represent total burned acreage."
+        "Hotspot ≠ Burned Area: Plotted coordinates indicate high-confidence (≥ 70%) active thermal "
+        "anomalies within 0.01° grid cells and do not directly represent total burned acreage."
     )
 
 # ==============================================================================
 # PAGE 6: CALIBRATION VALIDATION
 # ==============================================================================
 elif active_page == "Calibration Validation":
-    st.markdown("### Statistical Calibration Consistency & Resolution Bias Correction")
+    st.markdown("### Statistical Calibration Consistency & Resolution Bias Correction (Conf ≥ 70%)")
     m_monthly = f_modis.groupby("month").size().reset_index(name="MODIS (1 km)")
     v_monthly = f_viirs.groupby("month").size().reset_index(name="VIIRS (375 m)")
     h_monthly = f_harm.groupby("month").size().reset_index(name="Harmonized")
@@ -1192,7 +1196,7 @@ elif active_page == "Calibration Validation":
     fig_comp.update_layout(
         barmode="group",
         xaxis_title="Month",
-        yaxis_title="Event Count",
+        yaxis_title="Event Count (Conf ≥ 70%)",
         template=plotly_template,
         font=dict(size=15, color=chart_font_color),
         paper_bgcolor="rgba(0,0,0,0)",
@@ -1206,9 +1210,9 @@ elif active_page == "Calibration Validation":
 # PAGE 7: THERMODYNAMIC MODELING
 # ==============================================================================
 elif active_page == "Thermodynamic Modeling":
-    st.markdown("### Bounded Radiative Power & Combustion Kinetics")
+    st.markdown("### Bounded Radiative Power & Combustion Kinetics (Conf ≥ 70%)")
     st.caption(
-        "Instantaneous quantities derived from orbital Fire Radiative Power (FRP ±15%) "
+        "Instantaneous quantities derived from high-confidence (≥ 70%) orbital Fire Radiative Power (FRP ±15%) "
         "and Wooster et al. (2005) combustion factor (0.368 ± 0.05 kg/MJ). "
         "Single-year selection enables annual dry biomass integration (Δt_eff = 1 hr)."
     )
@@ -1307,9 +1311,10 @@ elif active_page == "Methodology & Caveats":
     1. **Spatial Resampling:** Native VIIRS (375 m) and MODIS (1 km) centroids are binned
        onto a unified $0.01^\\circ \\times 0.01^\\circ$ (~$1.11\\text{ km}$) geographic grid
        per UTC acquisition date to eliminate sub-pixel overcounting.
-    2. **Confidence Calibration:** Categorical VIIRS flags (`low`, `nominal`, `high`) are
-       mapped to quantitative equivalence scores (`30`, `70`, `95`) matching the MODIS `0–100%`
-       scale; detections below `30%` are filtered as solar-glint / bare-soil noise per Giglio et al. (2016).
+    2. **High-Reliability Confidence Calibration (≥ 70%):** Categorical VIIRS flags (`low`, `nominal`, `high`)
+       are mapped to quantitative equivalence scores (`30`, `70`, `95`) matching the MODIS `0–100%`
+       scale; detections below **`70%`** (including VIIRS `low` confidence class) are strictly filtered
+       out to eliminate solar-glint, bare-soil, and industrial thermal noise.
     3. **Composite Fire Activity Index (FAI):**
        $$\\text{FAI} = \\overline{\\text{FRP}} \\times \\left(\\frac{C_{\\max}}{100}\\right) \\times \\left[1 + 0.25(N_{\\text{sensors}} - 1)\\right]$$
     4. **Instantaneous Combustion Kinetics & Single-Year Integration:**
