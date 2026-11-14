@@ -18,7 +18,7 @@ if "ui_theme" not in st.session_state:
     st.session_state.ui_theme = "Dark Space"
 
 # --- TOP BAR: THEME TOGGLE ON TOP RIGHT ---
-top_spacer, top_theme_col = st.columns([6.2, 1.8])
+top_spacer, top_theme_col = st.columns([6.0, 2.0])
 with top_theme_col:
     theme_choice = st.radio(
         "Theme",
@@ -46,6 +46,7 @@ if is_dark:
     chart_font_color = "#F8FAFC"
     map_style = "carto-darkmatter"
     nav_bg = "#131A2B"
+    nav_pill_bg = "#1C263E"
     input_bg = "#161E31"
 else:
     bg_main = "#F1F5F9"
@@ -61,6 +62,7 @@ else:
     chart_font_color = "#090D16"
     map_style = "carto-positron"
     nav_bg = "#FFFFFF"
+    nav_pill_bg = "#E2E8F0"
     input_bg = "#FFFFFF"
 
 # --- GLOBAL ENLARGED TYPOGRAPHY & HIGH-CONTRAST THEME CSS ---
@@ -108,17 +110,34 @@ st.markdown(f"""
         color: {text_secondary} !important;
         font-size: 15px !important;
     }}
-    /* Radio buttons & top navigation */
+    /* Enlarged, bold top navigation & radio buttons */
     div[data-baseweb="radio"] > div {{
         background: {nav_bg} !important;
-        border: 1.5px solid {card_border} !important;
-        border-radius: 10px !important;
-        padding: 8px 14px !important;
+        border: 2px solid {card_border} !important;
+        border-radius: 12px !important;
+        padding: 12px 16px !important;
+        gap: 12px !important;
+        flex-wrap: wrap !important;
     }}
-    div[data-baseweb="radio"] label p {{
+    div[data-baseweb="radio"] label {{
+        background: {nav_pill_bg} !important;
+        border: 1.5px solid {card_border} !important;
+        border-radius: 8px !important;
+        padding: 8px 16px !important;
+        margin: 0 !important;
+        transition: all 0.15s ease-in-out !important;
+    }}
+    div[data-baseweb="radio"] label:has(input:checked) {{
+        border: 2px solid {accent_primary} !important;
+        box-shadow: 0 0 12px rgba(255, 87, 34, 0.35) !important;
+    }}
+    div[data-baseweb="radio"] label p,
+    div[data-baseweb="radio"] label div,
+    div[data-baseweb="radio"] label span {{
         color: {text_primary} !important;
-        font-size: 16px !important;
-        font-weight: 600 !important;
+        font-size: 20px !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.3px !important;
     }}
     /* Selectbox & Multiselect high contrast */
     div[data-baseweb="select"] > div {{
@@ -242,7 +261,6 @@ st.markdown(f"""
         font-size: 15px !important;
         font-weight: 600 !important;
     }}
-    /* Download button high contrast */
     .stDownloadButton button {{
         background-color: {accent_primary} !important;
         color: #FFFFFF !important;
@@ -501,7 +519,7 @@ active_page = st.radio(
     label_visibility="collapsed"
 )
 
-st.markdown("<hr style='margin-top:8px; margin-bottom:24px; opacity:0.35;'>", unsafe_allow_html=True)
+st.markdown("<hr style='margin-top:10px; margin-bottom:26px; opacity:0.35;'>", unsafe_allow_html=True)
 
 # Shared KPI calculations
 raw_total = len(f_modis) + len(f_viirs)
