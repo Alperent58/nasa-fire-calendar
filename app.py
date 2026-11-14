@@ -442,7 +442,7 @@ with tab5:
 
     m1.metric("Cumulative Radiative Power", f"{total_mw:,.0f} ± {total_mw*0.15:,.0f} MW")
     m2.metric("Est. Biomass Consumption (1-hr)", f"{est_biomass_tons:,.0f} ± {biomass_err:,.0f} t")
-    m3.metric("Peak Grid Heat Flux", f"{peak_flux:.2f} ± {flux_err:.2f} kW/m²")
+   
     
     monthly_energy = f_harm.groupby("month")["total_frp"].sum().reset_index()
     monthly_energy["Month"] = monthly_energy["month"].map(month_names)
