@@ -555,7 +555,18 @@ with tab6:
     burn_rate_err = mean_burn_rate * 0.202
     peak_flux = (f_harm["total_frp"].max() * 1000) / (1100 * 1100) if harm_total > 0 else 0
     flux_err = peak_flux * 0.15
-
+st.markdown("""
+    <div style="background-color: #161B22; border: 1px solid #30363D; border-left: 4px solid #58A6FF; border-radius: 6px; padding: 16px 20px; margin-top: 16px;">
+        <div style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: #58A6FF; letter-spacing: 0.6px; margin-bottom: 8px;">
+            Governing Thermodynamic & Biomass Equations
+        </div>
+        <div style="font-size: 13.5px; color: #C9D1D9; line-height: 1.6;">
+            • <strong>Instantaneous Biomass Burn Rate (Wooster et al., 2005):</strong> &nbsp; <code>ṁ = 0.368 × FRP [kg/s]</code> &nbsp; <em>(RSS Uncertainty: ±20.2%)</em><br>
+            • <strong>Peak Grid Radiative Heat Flux (0.01° ≈ 1.21 km² cell):</strong> &nbsp; <code>q'' = (FRP_max × 1000) / (1100 × 1100) [kW/m²]</code> &nbsp; <em>(Uncertainty: ±15.0%)</em><br>
+            • <strong>Single-Year Integrated Dry Biomass Loss (Δt_eff = 3600 s):</strong> &nbsp; <code>M_y = (0.368 × 3600 / 1000) × Σ FRP_i = 1.3248 × Σ FRP_i [t/yr]</code> &nbsp; <em>(RSS Uncertainty: ±32.2%)</em>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     # Show 4th metric card ONLY when a single year is selected
     if len(selected_years) == 1 and harm_total > 0:
         sel_yr = selected_years[0]
