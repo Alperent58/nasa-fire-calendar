@@ -152,7 +152,7 @@ st.markdown(f"""
     div[data-baseweb="radio"] label div,
     div[data-baseweb="radio"] label span {{
         color: {text_primary} !important;
-        font-size: 21px !important;
+        font-size: 26px !important;
         font-weight: 800 !important;
         letter-spacing: 0.2px !important;
         text-align: center !important;
