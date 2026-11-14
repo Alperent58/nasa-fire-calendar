@@ -569,4 +569,4 @@ with tab6:
     else:
         m1, m2, m3 = st.columns(3)
         m1.metric("Cumulative Snapshot FRP", f"{total_mw:,.0f} ± {total_mw*0.15:,.0f} MW")
-        m2.metric("Mean Event Burn Rate (ṁ)", f"{mean_burn_rate:.
+m2.metric("Mean Event Burn Rate (ṁ)", f"{mean_burn_rate:.2f} ± {burn_rate_err:.2f} kg/s")
