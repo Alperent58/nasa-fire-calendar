@@ -7,95 +7,80 @@ import glob
 import os
 
 st.set_page_config(
-    page_title="NASA Space Apps | Fire Activity Calendar",
+    page_title="MODIS-VIIRS Fire Regime & Thermal Analysis",
     layout="wide",
-    page_icon="🛰️",
     initial_sidebar_state="expanded"
 )
 
-# --- CUSTOM NASA MISSION CONTROL CSS ---
+# --- CLEAN TECHNICAL UI STYLING ---
 st.markdown("""
 <style>
     .stApp {
-        background: radial-gradient(circle at top right, #162038 0%, #0B0F19 60%);
+        background-color: #0E1117;
     }
-    .nasa-banner {
-        background: linear-gradient(90deg, rgba(255,75,43,0.15) 0%, rgba(19,26,42,0.9) 100%);
-        border-left: 5px solid #FF4B2B;
-        border-radius: 10px;
-        padding: 20px 25px;
-        margin-bottom: 25px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    .header-container {
+        border-bottom: 1px solid #262C36;
+        padding-bottom: 16px;
+        margin-bottom: 24px;
     }
-    .nasa-badge {
-        display: inline-block;
-        background-color: rgba(255, 75, 43, 0.2);
-        color: #FF6B4A;
-        border: 1px solid #FF4B2B;
-        padding: 3px 10px;
-        border-radius: 20px;
+    .header-meta {
+        font-family: monospace;
         font-size: 12px;
-        font-weight: 600;
-        letter-spacing: 1px;
-        margin-bottom: 8px;
+        color: #8B949E;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        margin-bottom: 4px;
     }
-    .nasa-title {
-        font-size: 32px;
-        font-weight: 800;
-        color: #FFFFFF;
+    .header-title {
+        font-size: 28px;
+        font-weight: 700;
+        color: #F0F6FC;
         margin: 0;
-        letter-spacing: -0.5px;
     }
-    .nasa-subtitle {
-        font-size: 15px;
-        color: #94A3B8;
+    .header-desc {
+        font-size: 14px;
+        color: #8B949E;
         margin-top: 6px;
     }
     div[data-testid="stMetric"] {
-        background-color: rgba(19, 26, 42, 0.85);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-top: 3px solid #FF4B2B;
-        border-radius: 12px;
-        padding: 16px 20px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        background-color: #161B22;
+        border: 1px solid #30363D;
+        border-radius: 6px;
+        padding: 14px 18px;
     }
     div[data-testid="stMetricLabel"] {
-        color: #94A3B8 !important;
-        font-size: 13px !important;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        color: #8B949E !important;
+        font-size: 12px !important;
+        font-weight: 600 !important;
     }
     div[data-testid="stMetricValue"] {
-        color: #FFFFFF !important;
-        font-size: 28px !important;
-        font-weight: 700 !important;
+        color: #F0F6FC !important;
+        font-size: 24px !important;
+        font-weight: 600 !important;
     }
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background-color: rgba(19, 26, 42, 0.6);
-        padding: 6px;
-        border-radius: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        gap: 24px;
+        border-bottom: 1px solid #262C36;
     }
     .stTabs [data-baseweb="tab"] {
-        border-radius: 8px;
-        padding: 10px 18px;
-        color: #94A3B8;
-        font-weight: 600;
+        padding: 10px 4px;
+        color: #8B949E;
+        font-weight: 500;
+        font-size: 14px;
     }
     .stTabs [aria-selected="true"] {
-        background-color: #FF4B2B !important;
-        color: #FFFFFF !important;
+        color: #F0F6FC !important;
+        border-bottom: 2px solid #E34C26 !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# --- HEADER BANNER ---
+# --- TECHNICAL HEADER ---
 st.markdown("""
-<div class="nasa-banner">
-    <div class="nasa-badge">🛰️ NASA SPACE APPS CHALLENGE • MULTI-SENSOR FUSION ENGINE</div>
-    <div class="nasa-title">🔥 MODIS & VIIRS Harmonized Fire Activity Calendar</div>
-    <div class="nasa-subtitle">Spatial, temporal, and thermodynamic harmonization of orbital thermal anomalies for critical wildfire regime detection.</div>
+<div class="header-container">
+    <div class="header-meta">NASA FIRMS ARCHIVE • MULTI-SENSOR SPATIOTEMPORAL HARMONIZATION</div>
+    <div class="header-title">MODIS & VIIRS Fire Activity Calendar and Radiative Energy Analysis</div>
+    <div class="header-desc">Cross-sensor spatial grid alignment (0.01°), confidence normalization, and thermodynamic biomass combustion modeling.</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -123,7 +108,7 @@ def load_and_harmonize():
     modis = pd.concat(modis_list, ignore_index=True)
     viirs = pd.concat(viirs_list, ignore_index=True)
 
-    # 1. Confidence Score Normalization (0-100 unified scale)
+    # 1. Confidence Normalization (0-100 scale)
     modis["norm_conf"] = pd.to_numeric(modis["confidence"], errors="coerce").fillna(50)
     conf_map = {"l": 30, "n": 70, "h": 95, "low": 30, "nominal": 70, "high": 95}
     viirs["norm_conf"] = viirs["confidence"].astype(str).str.lower().map(conf_map).fillna(70)
@@ -134,7 +119,7 @@ def load_and_harmonize():
     modis["sensor"] = "MODIS (1 km)"
     viirs["sensor"] = "VIIRS (375 m)"
 
-    # 2. Spatial-Temporal Grid Alignment (0.01 deg ~ 1.1 km resolution)
+    # 2. Spatial-Temporal Grid Alignment (0.01 deg ~ 1.11 km)
     for df in [modis, viirs]:
         df["acq_date"] = pd.to_datetime(df["acq_date"])
         df["year"] = df["acq_date"].dt.year
@@ -156,6 +141,7 @@ def load_and_harmonize():
         raw_detections=("frp", "count")
     ).reset_index()
 
+    # Composite Fire Activity Index & Biomass Consumption Rate (Wooster et al., 2005: 0.368 kg/MJ)
     harmonized["fire_activity_index"] = harmonized["total_frp"] * (harmonized["max_conf"] / 100.0) * (1 + 0.25 * (harmonized["sensor_count"] - 1))
     harmonized["biomass_rate_kg_s"] = harmonized["total_frp"] * 0.368
 
@@ -164,29 +150,29 @@ def load_and_harmonize():
 modis_df, viirs_df, harm_df, debug_files = load_and_harmonize()
 
 if harm_df is None:
-    st.error(f"CSV files not found! Files currently inside repository: {debug_files}")
+    st.error(f"Dataset files not found in directory: {debug_files}")
     st.stop()
 
-# --- SIDEBAR CONTROL PANEL ---
+# --- SIDEBAR PARAMETERS ---
 with st.sidebar:
-    st.markdown("### 🎛️ Mission Control Filters")
+    st.markdown("#### Query Parameters")
     years = sorted(harm_df["year"].unique())
-    selected_years = st.multiselect("Observation Years:", years, default=years)
+    selected_years = st.multiselect("Observation Period (Years)", years, default=years)
 
-    region_preset = st.selectbox("Target Region (AOI):", [
-        "All Türkiye",
-        "Mediterranean & Aegean Coast (Forest Fire Zone)",
-        "Southeastern Anatolia (Agricultural Stubble Zone)",
+    region_preset = st.selectbox("Area of Interest (AOI)", [
+        "All Türkiye (35.5°N–42.5°N)",
+        "Mediterranean & Aegean Coast",
+        "Southeastern Anatolia",
         "Black Sea Region"
     ])
 
     st.markdown("---")
-    st.markdown("### 📥 Export Harmonized Data")
-    st.caption("Download the deduplicated, multi-sensor harmonized dataset for external CFD/GIS modeling.")
+    st.markdown("#### Data Export")
+    st.caption("Export harmonized grid records (CSV) for external GIS or CFD boundary condition setup.")
 
-if region_preset == "Mediterranean & Aegean Coast (Forest Fire Zone)":
+if region_preset == "Mediterranean & Aegean Coast":
     lat_range, lon_range = (36.0, 39.5), (26.0, 36.5)
-elif region_preset == "Southeastern Anatolia (Agricultural Stubble Zone)":
+elif region_preset == "Southeastern Anatolia":
     lat_range, lon_range = (36.5, 38.5), (37.0, 42.5)
 elif region_preset == "Black Sea Region":
     lat_range, lon_range = (40.5, 42.2), (31.0, 41.5)
@@ -200,71 +186,74 @@ f_viirs = viirs_df[(viirs_df["year"].isin(selected_years)) & (viirs_df["latitude
 with st.sidebar:
     csv_export = f_harm.head(10000).to_csv(index=False).encode("utf-8")
     st.download_button(
-        label="⬇️ Download Harmonized CSV",
+        label="Download Harmonized CSV",
         data=csv_export,
-        file_name="harmonized_nasa_fire_events.csv",
+        file_name="harmonized_fire_events.csv",
         mime="text/csv"
     )
+    st.markdown("---")
+    st.caption("Data Source: NASA FIRMS (MODIS Collection 6.1 & VIIRS S-NPP C2)")
 
-# --- TOP KPI METRICS ---
+# --- SUMMARY METRICS ---
 col1, col2, col3, col4 = st.columns(4)
 raw_total = len(f_modis) + len(f_viirs)
 harm_total = len(f_harm)
 reduction = ((raw_total - harm_total) / raw_total * 100) if raw_total > 0 else 0
 
 col1.metric("Raw Sensor Detections", f"{raw_total:,}")
-col2.metric("Harmonized Fire Events", f"{harm_total:,}", f"-{reduction:.1f}% duplicates merged")
-col3.metric("Dual-Sensor Verified", f"{len(f_harm[f_harm['sensor_count'] == 2]):,}")
-col4.metric("Mean Radiative Power", f"{f_harm['total_frp'].mean():.1f} MW" if harm_total > 0 else "0 MW")
+col2.metric("Harmonized Fire Events", f"{harm_total:,}", f"-{reduction:.1f}% spatial overlap")
+col3.metric("Dual-Sensor Coincident", f"{len(f_harm[f_harm['sensor_count'] == 2]):,}")
+col4.metric("Mean Radiative Power", f"{f_harm['total_frp'].mean():.1f} MW" if harm_total > 0 else "0.0 MW")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- TABS ---
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📅 Fire Activity Calendar",
-    "🚨 Anomaly Detection",
-    "🗺️ Geospatial Hotspots",
-    "⚖️ Sensor Harmonization",
-    "⚙️ Thermodynamics & Kinetics"
+# --- NAVIGATION TABS ---
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "Seasonal Calendar",
+    "Anomaly Analysis",
+    "Spatial Distribution",
+    "Sensor Intercomparison",
+    "Thermodynamic Modeling",
+    "Data & Methodology"
 ])
 
 month_names = {1:"Jan", 2:"Feb", 3:"Mar", 4:"Apr", 5:"May", 6:"Jun", 7:"Jul", 8:"Aug", 9:"Sep", 10:"Oct", 11:"Nov", 12:"Dec"}
 
 with tab1:
-    st.subheader("Annual & Monthly Critical Fire Regime Matrix")
+    st.markdown("##### Monthly Fire Regime Matrix (Harmonized Event Count)")
     cal_data = f_harm.groupby(["year", "month"]).agg(fire_count=("fire_activity_index", "count")).reset_index()
     pivot_cal = cal_data.pivot(index="year", columns="month", values="fire_count").fillna(0)
     pivot_cal.columns = [month_names.get(c, c) for c in pivot_cal.columns]
     fig_cal = px.imshow(
         pivot_cal,
-        labels=dict(x="Month", y="Year", color="Fire Events"),
-        color_continuous_scale="Inferno",
+        labels=dict(x="Month", y="Year", color="Events"),
+        color_continuous_scale="YlOrRd",
         text_auto=True,
         aspect="auto"
     )
-    fig_cal.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+    fig_cal.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", margin=dict(t=20))
     st.plotly_chart(fig_cal, use_container_width=True)
 
 with tab2:
-    st.subheader("Time-Series & Extreme Anomaly Detection (+2σ Threshold)")
+    st.markdown("##### Daily Time-Series & Statistical Thresholding (μ + 2σ)")
     daily = f_harm.groupby("acq_date").agg(event_count=("fire_activity_index", "count")).reset_index()
     mean_val, std_val = daily["event_count"].mean(), daily["event_count"].std()
     threshold = mean_val + 2 * std_val
-    daily["Status"] = np.where(daily["event_count"] > threshold, "🚨 EXTREME ANOMALY", "Normal Seasonal Regime")
+    daily["Classification"] = np.where(daily["event_count"] > threshold, "Anomaly (> +2σ)", "Baseline Regime")
     fig_anom = px.scatter(
         daily,
         x="acq_date",
         y="event_count",
-        color="Status",
-        labels={"acq_date": "Acquisition Date", "event_count": "Daily Harmonized Events"},
-        color_discrete_map={"🚨 EXTREME ANOMALY": "#FF4B2B", "Normal Seasonal Regime": "#F59E0B"}
+        color="Classification",
+        labels={"acq_date": "Date", "event_count": "Daily Fire Events"},
+        color_discrete_map={"Anomaly (> +2σ)": "#E34C26", "Baseline Regime": "#58A6FF"}
     )
-    fig_anom.add_hline(y=threshold, line_dash="dash", line_color="#FF4B2B", annotation_text="Critical Threshold (+2σ)")
-    fig_anom.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(19,26,42,0.5)")
+    fig_anom.add_hline(y=threshold, line_dash="dash", line_color="#E34C26", annotation_text=f"2σ Threshold ({threshold:.1f})")
+    fig_anom.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#161B22", margin=dict(t=20))
     st.plotly_chart(fig_anom, use_container_width=True)
 
 with tab3:
-    st.subheader("Orbital Thermal Hotspot Distribution (Top 3,000 High-Intensity Events)")
+    st.markdown("##### Geospatial Distribution of High-Intensity Events (Top 3,000 by FAI)")
     sample_map = f_harm.sort_values("fire_activity_index", ascending=False).head(3000)
     fig_map = px.scatter_map(
         sample_map,
@@ -272,40 +261,40 @@ with tab3:
         lon="longitude",
         size="total_frp",
         color="sensor_count",
-        color_continuous_scale=["#F59E0B", "#FF2A00"],
-        labels={"sensor_count": "Verified Sensors", "total_frp": "FRP (MW)", "max_conf": "Confidence (%)"},
+        color_continuous_scale=["#D29922", "#E34C26"],
+        labels={"sensor_count": "Sensor Count", "total_frp": "FRP (MW)", "max_conf": "Confidence (%)"},
         hover_data=["acq_date", "total_frp", "max_conf"],
         zoom=5,
-        height=580,
+        height=560,
         map_style="carto-darkmatter"
     )
-    fig_map.update_layout(margin=dict(l=0, r=0, t=0, b=0), paper_bgcolor="rgba(0,0,0,0)")
+    fig_map.update_layout(margin=dict(l=0, r=0, t=10, b=0), paper_bgcolor="rgba(0,0,0,0)")
     st.plotly_chart(fig_map, use_container_width=True)
 
 with tab4:
-    st.subheader("Multi-Sensor Resolution & Pixel Inflation Correction")
-    m_monthly = f_modis.groupby("month").size().reset_index(name="MODIS (Raw)")
-    v_monthly = f_viirs.groupby("month").size().reset_index(name="VIIRS (Raw)")
+    st.markdown("##### Resolution Bias & Sub-Pixel Duplication Correction")
+    m_monthly = f_modis.groupby("month").size().reset_index(name="MODIS (1 km)")
+    v_monthly = f_viirs.groupby("month").size().reset_index(name="VIIRS (375 m)")
     h_monthly = f_harm.groupby("month").size().reset_index(name="Harmonized")
     comp = m_monthly.merge(v_monthly, on="month", how="outer").merge(h_monthly, on="month", how="outer").fillna(0)
     comp["Month"] = comp["month"].map(month_names)
     fig_comp = go.Figure()
-    fig_comp.add_trace(go.Bar(x=comp["Month"], y=comp["MODIS (Raw)"], name="MODIS (1 km)", marker_color="#3B82F6"))
-    fig_comp.add_trace(go.Bar(x=comp["Month"], y=comp["VIIRS (Raw)"], name="VIIRS (375 m)", marker_color="#F59E0B"))
-    fig_comp.add_trace(go.Scatter(x=comp["Month"], y=comp["Harmonized"], name="Harmonized Ground-Truth", mode="lines+markers", line=dict(color="#FF4B2B", width=4)))
-    fig_comp.update_layout(barmode="group", xaxis_title="Month", yaxis_title="Detections / Events", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(19,26,42,0.5)")
+    fig_comp.add_trace(go.Bar(x=comp["Month"], y=comp["MODIS (1 km)"], name="MODIS (1 km)", marker_color="#388BFD"))
+    fig_comp.add_trace(go.Bar(x=comp["Month"], y=comp["VIIRS (375 m)"], name="VIIRS (375 m)", marker_color="#D29922"))
+    fig_comp.add_trace(go.Scatter(x=comp["Month"], y=comp["Harmonized"], name="Harmonized Grid Events", mode="lines+markers", line=dict(color="#E34C26", width=3)))
+    fig_comp.update_layout(barmode="group", xaxis_title="Month", yaxis_title="Event Count", paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#161B22", margin=dict(t=20))
     st.plotly_chart(fig_comp, use_container_width=True)
 
 with tab5:
-    st.subheader("Thermodynamic Energy & Biomass Combustion Kinetics")
-    st.markdown("Physical quantities derived from orbital radiometric measurements (**FRP - MW**) via Stefan-Boltzmann radiation and Wooster combustion kinetics ($\\dot{m} = 0.368 \\times \\text{FRP}$):")
+    st.markdown("##### Radiative Energy Balance & Biomass Combustion Kinetics")
+    st.caption("Derived from Fire Radiative Power (FRP) using Wooster et al. (2005) combustion factor (0.368 kg/MJ) over a 0.01° (~1.21 km²) grid cell.")
     m1, m2, m3 = st.columns(3)
     total_mw = f_harm["total_frp"].sum()
     est_biomass_tons = (f_harm["biomass_rate_kg_s"].sum() * 3600) / 1000.0
     peak_flux = (f_harm["total_frp"].max() * 1000) / (1100 * 1100) if harm_total > 0 else 0
     m1.metric("Cumulative Radiative Power", f"{total_mw:,.0f} MW")
-    m2.metric("Est. Combusted Biomass (1-hr)", f"{est_biomass_tons:,.0f} Tons")
-    m3.metric("Peak Radiative Heat Flux", f"{peak_flux:.2f} kW/m²")
+    m2.metric("Est. Biomass Consumption (1-hr)", f"{est_biomass_tons:,.0f} t")
+    m3.metric("Peak Grid Heat Flux", f"{peak_flux:.2f} kW/m²")
     
     monthly_energy = f_harm.groupby("month")["total_frp"].sum().reset_index()
     monthly_energy["Month"] = monthly_energy["month"].map(month_names)
@@ -313,10 +302,21 @@ with tab5:
         monthly_energy,
         x="Month",
         y="total_frp",
-        labels={"total_frp": "Total Radiative Power (MW)"},
-        title="Monthly Cumulative Thermal Radiative Power (MW)",
+        labels={"total_frp": "Cumulative FRP (MW)"},
         color="total_frp",
-        color_continuous_scale="Inferno"
+        color_continuous_scale="YlOrRd"
     )
-    fig_eng.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(19,26,42,0.5)")
+    fig_eng.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="#161B22", margin=dict(t=20))
     st.plotly_chart(fig_eng, use_container_width=True)
+
+with tab6:
+    st.markdown("##### Harmonization Pipeline & Governing Equations")
+    st.markdown("""
+    1. **Spatial Resampling:** Native VIIRS (375 m) and MODIS (1 km) centroids are binned onto a unified $0.01^\\circ \\times 0.01^\\circ$ (~$1.11\\text{ km}$) geographic grid per UTC acquisition date to prevent sub-pixel overcounting.
+    2. **Confidence Normalization:** Categorical VIIRS flags (`low`, `nominal`, `high`) are mapped to quantitative equivalence scores (`30`, `70`, `95`) matching the MODIS `0–100%` scale; detections below `30%` are filtered as thermal noise.
+    3. **Composite Fire Activity Index (FAI):**
+       $$\\text{FAI} = \\overline{\\text{FRP}} \\times \\left(\\frac{C_{\\max}}{100}\\right) \\times \\left[1 + 0.25(N_{\\text{sensors}} - 1)\\right]$$
+    4. **Biomass Combustion Rate:** Estimated via radiative energy balance $\\dot{m}_b = 0.368 \\times \\text{FRP}\\ [\\text{kg/s}]$.
+    """)
+    st.markdown("##### Sample Harmonized Records")
+    st.dataframe(f_harm.head(50), use_container_width=True)
