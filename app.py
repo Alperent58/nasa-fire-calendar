@@ -145,8 +145,7 @@ with tab2:
 with tab3:
     st.subheader("Uyumlaştırılmış Kritik Noktalar Haritası")
     sample_map = f_harm.sort_values("fire_activity_index", ascending=False).head(3000)
-    fig_map = px.scatter_mapbox(sample_map, lat="latitude", lon="longitude", size="total_frp", color="sensor_count", color_continuous_scale=["#ff9900", "#ff0000"], hover_data=["acq_date", "total_frp", "max_conf"], zoom=5, height=550)
-    fig_map.update_layout(mapbox_style="open-street-map")
+    fig_map = px.scatter_map(sample_map, lat="latitude", lon="longitude", size="total_frp", color="sensor_count", color_continuous_scale=["#ff9900", "#ff0000"], hover_data=["acq_date", "total_frp", "max_conf"], zoom=5, height=550, map_style="open-street-map")
     st.plotly_chart(fig_map, use_container_width=True)
 
 with tab4:
